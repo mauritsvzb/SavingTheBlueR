@@ -306,7 +306,7 @@ catch <- import_data_from_gdrive(
 # 2. Clean Column Names
 otn_short <- clean_column_names(otn_short)
 
-# 3. Define excluded receiver stations
+# 3. Define excluded receiver stations that were only deployed temporarily
 excluded_stations <- c("SOM1", "SOM2", "BBC1", "MB2", "MB3", "MB4", "MB5", "BWC", "GCC",
                        "Deep Drop 2", "Salvador", "Deep Drop 1", "Bightbackreef", "On Buoy")
 
