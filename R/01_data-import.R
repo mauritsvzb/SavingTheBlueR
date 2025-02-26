@@ -65,8 +65,23 @@ import_data_from_gdrive <- function(folder_url, file_pattern, sheet = 1, col_typ
     tempfile <- tempfile(fileext = ".xlsx")
     drive_download(file = file$id, path = tempfile, overwrite = TRUE)
 
+    # The below code chunk L69-78 are used to correctly assign data type to the 'INS_SERIAL_NO'
+    # when function used to import the OTN short form
+    # Get all column names from the Excel file
+    all_col_names <- names(read_excel(tempfile, sheet = sheet, n_max = 0))
+
+    # Create a col_types vector with "guess" for all columns
+    all_col_types <- rep("guess", length(all_col_names))
+    names(all_col_types) <- all_col_names  # Assign names to the vector
+
+    # Overwrite the specific column type if it exists in the sheet
+    if ("INS_SERIAL_NO" %in% all_col_names) {
+      all_col_types["INS_SERIAL_NO"] <- "numeric"
+    }
+
     # Read the Excel file
-    data <- read_excel(tempfile, sheet = sheet, col_types = col_types)
+    # The suppressWarnings() is used to silence harmless warninggs related to code chunk L69-80 above
+    data <- suppressWarnings(read_excel(tempfile, sheet = sheet, col_types = all_col_types))
 
     # Clean up the temporary file
     unlink(tempfile)
@@ -104,9 +119,9 @@ clean_column_names <- function(data) {
 extract_receiver_metadata <- function(otn_data, excluded_stations) {
   rec.attr <- otn_data %>%
     filter(
-      !(STATION_NO == "SHARKHOLE" & DEPLOY_LAT == "24.42684"), #remove retired location
-      INS_MODEL_NO == "VR2W", #remove non-receivers
-      !STATION_NO %in% excluded_stations #remove certain receiver locations
+      !(STATION_NO == "SHARKHOLE" & DEPLOY_LAT == "24.42684") & #remove retired location
+        INS_MODEL_NO == "VR2W" & #remove non-receivers
+        !STATION_NO %in% excluded_stations #remove certain receiver locations
     ) %>%
     select( #select columns we want to keep
       DEPLOY_LAT,
@@ -149,12 +164,12 @@ extract_receiver_metadata <- function(otn_data, excluded_stations) {
 extract_receiver_deployment_data <- function(otn_data, excluded_stations, timezone) {
   rec.mov <- otn_data %>%
     filter(
-      !(STATION_NO == "SHARKHOLE" & DEPLOY_LAT == "24.42684"), #retired station
-      INS_MODEL_NO == "VR2W",
-      !STATION_NO %in% excluded_stations,
-      `DEPLOY_DATE_TIME...yyyy-mm-ddThh:mm:ss` != "2022-xxxxx", #remove rows with incomplete metadata
-      `DATA_DOWNLOADED.y/n` == "Y", #only keep rows that show a complete receiver cycle (deploy + retrieve)
-      !(STATION_NO == "On Buoy" & `DEPLOY_DATE_TIME...yyyy-mm-ddThh:mm:ss` == "2023-06-23T15:00:00") #NOTE: TEMPORARY FILTER. Awaiting (meta)data for this location
+      !(STATION_NO == "SHARKHOLE" & DEPLOY_LAT == "24.42684") & #retired station
+        INS_MODEL_NO == "VR2W" &
+        !STATION_NO %in% excluded_stations &
+        `DEPLOY_DATE_TIME...yyyy-mm-ddThh:mm:ss` != "2022-xxxxx" & #remove rows with incomplete metadata
+        `DATA_DOWNLOADED.y/n` == "Y" & #only keep rows that show a complete receiver cycle (deploy + retrieve)
+        !(STATION_NO == "On Buoy" & `DEPLOY_DATE_TIME...yyyy-mm-ddThh:mm:ss` == "2023-06-23T15:00:00") #NOTE: TEMPORARY FILTER. Awaiting (meta)data for this location
     ) %>%
     select(
       INS_SERIAL_NO,
@@ -198,16 +213,15 @@ extract_tag_metadata <- function(catch_data, timezone) {
       event_dt
     ) %>%
     filter(
-      !(is.na(acoustic_tag_id)) #filter out non-acoustic ids
-      # !tag_owner %in% "FIU/Yannis Papastamatiou" #these are both Yannis's/Tristan's tags: shared project
+      !(is.na(acoustic_tag_id)) & #filter out non-acoustic ids
+        trimws(acoustic_tag_id) != "NA"
     ) %>%
     mutate(
-      # Acoustic_Tag_ID = str_replace(Acoustic_Tag_ID, "\\-.*",""), #only take the first characters preceeding the "-"
       across(c(pcl, fl, tl, stl), ~ na_if(., "xxx")), #remove char string from columns
-      time = suppressWarnings(format(as.POSIXct(as.numeric(event_ts) * 86400, origin = "1970-01-01", tz = "UTC"), "%H:%M:%S")),
+      across(c(pcl, fl, tl, stl), ~ as.numeric(na_if(as.character(.), "NA"))),
+      time = format(as.POSIXct(as.numeric(event_ts) * 86400, origin = "1970-01-01", tz = "UTC"), "%H:%M:%S"),
       time = ifelse(is.na(time), "Invalid Time", time),
       tagging_datetime = as.POSIXct(paste(event_dt, time), format = "%Y-%m-%d %H:%M", tz = timezone),
-      suppressWarnings(across(c("pcl","fl","tl","stl"), as.numeric))
     ) %>%
     select(
       acoustic_tag_id,
@@ -248,8 +262,9 @@ process_detection_files <- function(folder_path) {
     temp_file <- tempfile(fileext = ".csv")
     drive_download(file = as_id(file_id), path = temp_file, overwrite = TRUE)
 
-    df <- read_csv(temp_file,
-                   col_types = cols(.default = "c")
+    df <- suppressWarnings(read_csv(temp_file, #suppress false alarm warnings that 10 columns are expected (=10 column headers) but
+                                               #in actuality there are only 8 (=data until 8th column)
+                   col_types = cols(.default = "c"))
     ) #read all columns as character
 
     unlink(temp_file) #delete the temporary file
@@ -260,7 +275,12 @@ process_detection_files <- function(folder_path) {
   # Process each dataframe
   myfiles <- map(myfiles, function(df) {
     df %>%
-      select(`Date and Time (UTC)`, Receiver, Transmitter, `Sensor Value`, `Sensor Unit`) %>%
+      select(
+        `Date and Time (UTC)`,
+        Receiver, Transmitter,
+        `Sensor Value`,
+        `Sensor Unit`
+        ) %>%
       rename(
         time = `Date and Time (UTC)`,
         station = Receiver,
@@ -293,8 +313,7 @@ process_detection_files <- function(folder_path) {
 otn_short <- import_data_from_gdrive(
   folder_url = "https://drive.google.com/drive/folders/1kShVtR3it9WUlVg9L4HzFcNA9R2_LYrN",
   file_pattern = "otn-instrument-deployment-short-form_GUTTRIDGE_2024_SEPT 24_1.xlsx",
-  sheet = 2,
-  col_types = c("INS_SERIAL_NO" = "text")
+  sheet = 2
 )
 
 catch <- import_data_from_gdrive(
@@ -331,8 +350,3 @@ purrr::iwalk(data_files, ~saveRDS(.x, here::here("data", paste0(.y, ".rds"))))
 
 # 7. Clean up environment
 rm(catch, otn_short, excluded_stations)
-
-
-
-
-
