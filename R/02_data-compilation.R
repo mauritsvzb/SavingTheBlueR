@@ -23,7 +23,7 @@ pacman::p_load(here, tidyverse, lubridate)
 
 # Define Global Variables/Constants
 data_timezone <- "US/Eastern"
-data_directory <- here("data")
+data_directory <- here::here("data")
 
 # Function Definitions
 
@@ -55,14 +55,14 @@ import_and_preprocess_data <- function(datadir, timezone) {
 }
 
 #-------------------------------------------------------------------------------
-# Function: filter_detections_by_tag_deployment
+# Function: filter_detections_by_tag_and_tag_deployment
 #-------------------------------------------------------------------------------
-#' @description Filter to remove detections that may have been biased by tagging event
+#' @description Filter to remove unknown tags and detections that may have been biased by tagging event
 #' @param det Detection dataframe
 #' @param IND Individual dataframe
-#' @param filter Boolean to indicate if first 24 hours following tag deployoment should be removed
+#' @param filter Boolean to indicate if data collected during first 24 hours post tag deployment should be removed
 #' @return Filtered detection dataframe
-filter_detections_by_tag_deployment <- function(det, IND, filter = FALSE) {
+filter_detections_by_tag_deployment <- function(det, IND, filter = TRUE) {
   if (filter) {
     IND <- IND %>% mutate(tagging_datetime = tagging_datetime + hours(24))
   }
@@ -80,13 +80,15 @@ filter_detections_by_tag_deployment <- function(det, IND, filter = FALSE) {
 #' @param VMOV Receiver movement dataframe
 #' @return Detection dataframe with assigned locations
 assign_locations_to_detections <- function(det, VMOV) {
-  det %>%
-    left_join(
-      VMOV %>%
-        select(`Receiver ID`, STATION_NO, `Date In`, `Date Out`) %>%
-        rename(station = `Receiver ID`, location = STATION_NO),
-      by = "station"
-    ) %>%
+  {suppressWarnings(left_join( #suppressWarnings() suppresses false alarm warnings originating from
+                               #the many duplicates that are created by the left_join(), which are
+                               #dealt with using the filter()
+    .,
+    VMOV %>%
+      select(`Receiver ID`, STATION_NO, `Date In`, `Date Out`) %>%
+      rename(station = `Receiver ID`, location = STATION_NO),
+    by = "station"
+  ))} %>%
     filter(time >= `Date In`, time <= `Date Out`) %>%
     select(-`Date In`, -`Date Out`)
 }
@@ -104,34 +106,26 @@ compile_data <- function(datadir, timezone, filter = FALSE) {
   data <- import_and_preprocess_data(datadir, timezone)
 
   # Filter detections by tag deployment
-  filtered_df <- filter_detections_by_tag_deployment(data$df, data$IND, filter)
+  filtered_det <- filter_detections_by_tag_deployment(data$det, data$IND, filter)
 
   # Assign locations to detections
-  compiled_df <- assign_locations_to_detections(filtered_df, data$VMOV)
+  compiled_det <- assign_locations_to_detections(filtered_det, data$VMOV)
 
   # Remove detections without assigned locations
-  compiled_df <- compiled_df %>% filter(!is.na(location))
+  compiled_det <- compiled_det %>% filter(!is.na(location))
 
   # Save compiled data
-  saveRDS(compiled_df, file.path(datadir, "DET_compiled.rds"))
+  saveRDS(compiled_det, file.path(datadir, "DET_compiled.rds"))
 
-  compiled_df
+  compiled_det
 }
-
-
-
-
-
-
-
-
 
 #-------------------------------------------------------------------------------
 # Main Script Execution
 #-------------------------------------------------------------------------------
 
 # Run the compile function
-compiled_data <- compile_data(datadir, timezone, filter = FALSE)
+compiled_data <- compile_data(data_directory, data_timezone, filter = FALSE)
 
 # Print summary of compiled data
 cat("Compilation complete. Summary of compiled data:\n")
