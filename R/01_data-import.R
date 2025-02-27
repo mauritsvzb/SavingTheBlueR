@@ -26,7 +26,7 @@ pacman::p_load(here, tidyverse, googledrive, readxl)
 
 # Define Global Variables/Constants
 data_timezone <- "US/Eastern"
-data_directory <- here("data")
+data_directory <- here::here("data")
 
 # Function Definitions
 
@@ -65,7 +65,7 @@ import_data_from_gdrive <- function(folder_url, file_pattern, sheet = 1, col_typ
     tempfile <- tempfile(fileext = ".xlsx")
     drive_download(file = file$id, path = tempfile, overwrite = TRUE)
 
-    # The below code chunk L69-78 are used to correctly assign data type to the 'INS_SERIAL_NO'
+    # The below code chunk L71-80 are used to correctly assign data type to 'INS_SERIAL_NO'
     # when function used to import the OTN short form
     # Get all column names from the Excel file
     all_col_names <- names(read_excel(tempfile, sheet = sheet, n_max = 0))
@@ -80,8 +80,9 @@ import_data_from_gdrive <- function(folder_url, file_pattern, sheet = 1, col_typ
     }
 
     # Read the Excel file
-    # The suppressWarnings() is used to silence harmless warninggs related to code chunk L69-80 above
-    data <- suppressWarnings(read_excel(tempfile, sheet = sheet, col_types = all_col_types))
+    # The suppressWarnings() is used to silence harmless warnings related to code chunk L69-80 above
+    data <- suppressWarnings(read_excel(tempfile, sheet = sheet, col_types = all_col_types,
+                                        na = "NA"))
 
     # Clean up the temporary file
     unlink(tempfile)
@@ -199,6 +200,7 @@ extract_receiver_deployment_data <- function(otn_data, excluded_stations, timezo
   return(rec.mov)
 }
 
+
 #-------------------------------------------------------------------------------
 # Function: extract_tag_metadata
 #-------------------------------------------------------------------------------
@@ -217,8 +219,6 @@ extract_tag_metadata <- function(catch_data, timezone) {
         trimws(acoustic_tag_id) != "NA"
     ) %>%
     mutate(
-      across(c(pcl, fl, tl, stl), ~ na_if(., "xxx")), #remove char string from columns
-      across(c(pcl, fl, tl, stl), ~ as.numeric(na_if(as.character(.), "NA"))),
       time = format(as.POSIXct(as.numeric(event_ts) * 86400, origin = "1970-01-01", tz = "UTC"), "%H:%M:%S"),
       time = ifelse(is.na(time), "Invalid Time", time),
       tagging_datetime = as.POSIXct(paste(event_dt, time), format = "%Y-%m-%d %H:%M", tz = timezone),
@@ -347,6 +347,3 @@ data_files <- list(
 )
 
 purrr::iwalk(data_files, ~saveRDS(.x, here::here("data", paste0(.y, ".rds"))))
-
-# 7. Clean up environment
-rm(catch, otn_short, excluded_stations)
