@@ -78,7 +78,7 @@ import_data_from_gdrive <- function(folder_url, file_pattern, sheet = 1, col_typ
     if ("INS_SERIAL_NO" %in% all_col_names) {
       all_col_types["INS_SERIAL_NO"] <- "numeric"
     }
-    if ("event_ts" %in% all_col_names) {
+    if ("event_ts" %in% all_col_names) { #this is needed because of the difference in which R and google drive save and read dates
       all_col_types["event_ts"] <- "numeric"  # Read event_ts as numeric
     }
 
