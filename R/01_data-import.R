@@ -78,11 +78,19 @@ import_data_from_gdrive <- function(folder_url, file_pattern, sheet = 1, col_typ
     if ("INS_SERIAL_NO" %in% all_col_names) {
       all_col_types["INS_SERIAL_NO"] <- "numeric"
     }
+    if ("event_ts" %in% all_col_names) {
+      all_col_types["event_ts"] <- "numeric"  # Read event_ts as numeric
+    }
 
     # Read the Excel file
     # The suppressWarnings() is used to silence harmless warnings related to code chunk L69-80 above
     data <- suppressWarnings(read_excel(tempfile, sheet = sheet, col_types = all_col_types,
                                         na = "NA"))
+
+    # Convert event_ts to proper time format
+    if ("event_ts" %in% names(data)) {
+      data$event_ts <- format(as.POSIXct((data$event_ts - 2) * 86400, origin = "1900-01-01", tz = "UTC"), "%H:%M:%S")
+    }
 
     # Clean up the temporary file
     unlink(tempfile)
@@ -210,18 +218,12 @@ extract_receiver_deployment_data <- function(otn_data, excluded_stations, timezo
 #' @return A data frame containing tag metadata.
 extract_tag_metadata <- function(catch_data, timezone) {
   ind.attr <- catch_data %>%
-    arrange(
-      acoustic_tag_id,
-      event_dt
-    ) %>%
     filter(
       !(is.na(acoustic_tag_id)) & #filter out non-acoustic ids
         trimws(acoustic_tag_id) != "NA"
     ) %>%
     mutate(
-      time = format(as.POSIXct(as.numeric(event_ts) * 86400, origin = "1970-01-01", tz = "UTC"), "%H:%M:%S"),
-      time = ifelse(is.na(time), "Invalid Time", time),
-      tagging_datetime = as.POSIXct(paste(event_dt, time), format = "%Y-%m-%d %H:%M", tz = timezone),
+      tagging_datetime = as.POSIXct(paste(event_dt, event_ts), format = "%Y-%m-%d %H:%M:%S", tz = timezone)
     ) %>%
     select(
       acoustic_tag_id,
