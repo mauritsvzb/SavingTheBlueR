@@ -87,7 +87,7 @@ import_data_from_gdrive <- function(folder_url, file_pattern, sheet = 1, col_typ
     data <- suppressWarnings(read_excel(tempfile, sheet = sheet, col_types = all_col_types,
                                         na = "NA"))
 
-    # Convert event_ts to proper time format
+    # Convert event_ts to proper time format (related to L81-83)
     if ("event_ts" %in% names(data)) {
       data$event_ts <- format(as.POSIXct((data$event_ts - 2) * 86400, origin = "1900-01-01", tz = "UTC"), "%H:%M:%S")
     }
