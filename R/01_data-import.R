@@ -348,4 +348,4 @@ data_files <- list(
   DET = raw.det
 )
 
-purrr::iwalk(data_files, ~saveRDS(.x, here::here("data", paste0(.y, ".rds"))))
+purrr::iwalk(data_files, ~saveRDS(.x, file.path(data_directory, paste0(.y, ".rds"))))
