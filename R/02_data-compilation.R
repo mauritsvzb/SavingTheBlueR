@@ -166,7 +166,7 @@ compile_data <- function(datadir, timezone, filter = FALSE) {
 #-------------------------------------------------------------------------------
 
 # Run the compile function
-compiled_data <- compile_data(data_directory, data_timezone, filter = FALSE)
+compiled_data <- compile_data(data_directory, data_timezone, filter = TRUE)
 
 # Print summary of compiled data
 cat("Compilation complete. Summary of compiled data:\n")
