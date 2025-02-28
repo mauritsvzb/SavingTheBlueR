@@ -60,16 +60,55 @@ import_and_preprocess_data <- function(datadir, timezone) {
 #' @description Filter to remove unknown tags and detections that may have been biased by tagging event
 #' @param det Detection dataframe
 #' @param IND Individual dataframe
-#' @param filter Boolean to indicate if data collected during first 24 hours post tag deployment should be removed
+#' @param filter Boolean to indicate if data collected during first 24 hours post tagging should be removed,
+#'               but also removes detections that occurred prior to tag deployment and no detection thereafter
 #' @return Filtered detection dataframe
-filter_detections_by_tag_deployment <- function(det, IND, filter = TRUE) {
+filter_detections_by_tag_and_tag_deployment <- function(det, IND, filter = FALSE) {
+
+  # Check and convert data types if necessary
+  if (is.character(det$elasmo) && is.numeric(IND$acoustic_tag_id)) {
+    det$elasmo <- as.numeric(det$elasmo)
+    # cat("Converted 'elasmo' in det to numeric.\n")
+  } else if (is.numeric(det$elasmo) && is.character(IND$acoustic_tag_id)) {
+    IND$acoustic_tag_id <- as.character(IND$acoustic_tag_id)
+    # cat("Converted 'acoustic_tag_id' in IND to character.\n")
+  }
+
+  # Find the unique IDs that are in det but not in IND
+  excluded_ids <- setdiff(unique(det$elasmo), IND$acoustic_tag_id)
+
+  # Print the excluded IDs
+  if (length(excluded_ids) > 0) {
+    cat("The following unique transmitter IDs were excluded because they do not occur in the catch database:\n")
+    print(excluded_ids)
+  } else {
+    cat("No transmitter IDs were excluded.\n")
+  }
+
   if (filter) {
     IND <- IND %>% mutate(tagging_datetime = tagging_datetime + hours(24))
   }
 
-  det %>%
-    semi_join(IND, by = c("elasmo" = "acoustic_tag_id")) %>%
+  # Perform the semi_join
+  det_joined <- det %>%
+    semi_join(IND, by = c("elasmo" = "acoustic_tag_id"))
+
+  # Perform the filtering and capture excluded tags
+  filtered_det <- det_joined %>%
     filter(time >= IND$tagging_datetime[match(elasmo, IND$acoustic_tag_id)])
+
+  # Find tags excluded by the filter
+  excluded_by_filter <- setdiff(unique(det_joined$elasmo), unique(filtered_det$elasmo))
+
+  # Print the tags excluded by the filter
+  if (length(excluded_by_filter) > 0) {
+    cat("\nThe following tags were removed by the time filter:\n")
+    print(excluded_by_filter)
+  } else {
+    cat("\nNo tags were removed by the time filter.\n")
+  }
+
+  return(filtered_det)
 }
 
 #-------------------------------------------------------------------------------
@@ -80,15 +119,17 @@ filter_detections_by_tag_deployment <- function(det, IND, filter = TRUE) {
 #' @param VMOV Receiver movement dataframe
 #' @return Detection dataframe with assigned locations
 assign_locations_to_detections <- function(det, VMOV) {
-  {suppressWarnings(left_join( #suppressWarnings() suppresses false alarm warnings originating from
-                               #the many duplicates that are created by the left_join(), which are
-                               #dealt with using the filter()
-    .,
-    VMOV %>%
-      select(`Receiver ID`, STATION_NO, `Date In`, `Date Out`) %>%
-      rename(station = `Receiver ID`, location = STATION_NO),
-    by = "station"
-  ))} %>%
+  suppressWarnings( #suppressWarnings() suppresses false alarm warnings originating from
+                    #the many duplicates that are created by the left_join(), which are
+                    #dealt with using the filter()
+    det %>%
+      left_join(
+        VMOV %>%
+          select(`Receiver ID`, STATION_NO, `Date In`, `Date Out`) %>%
+          rename(station = `Receiver ID`, location = STATION_NO),
+        by = "station"
+      )
+  ) %>%
     filter(time >= `Date In`, time <= `Date Out`) %>%
     select(-`Date In`, -`Date Out`)
 }
@@ -106,7 +147,7 @@ compile_data <- function(datadir, timezone, filter = FALSE) {
   data <- import_and_preprocess_data(datadir, timezone)
 
   # Filter detections by tag deployment
-  filtered_det <- filter_detections_by_tag_deployment(data$det, data$IND, filter)
+  filtered_det <- filter_detections_by_tag_and_tag_deployment(data$det, data$IND, filter)
 
   # Assign locations to detections
   compiled_det <- assign_locations_to_detections(filtered_det, data$VMOV)
