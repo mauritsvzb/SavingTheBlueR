@@ -21,10 +21,6 @@ rm(list = ls())
 if (!require("pacman")) install.packages("pacman")
 pacman::p_load(here, tidyverse, lubridate)
 
-# Define Global Variables/Constants
-data_timezone <- "US/Eastern"
-data_directory <- here::here("data")
-
 # Function Definitions
 
 #-------------------------------------------------------------------------------
@@ -168,6 +164,10 @@ compile_data <- function(datadir, timezone, filter = FALSE) {
 #-------------------------------------------------------------------------------
 # Main Script Execution
 #-------------------------------------------------------------------------------
+
+# Define Global Variables/Constants
+data_timezone <- "US/Eastern"
+data_directory <- here::here("data")
 
 # Run the compile function
 compiled_data <- compile_data(data_directory, data_timezone, filter = TRUE)
