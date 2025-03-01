@@ -27,7 +27,7 @@ pacman::p_load(here, tidyverse, lubridate)
 # Function: import_and_preprocess_data
 #-------------------------------------------------------------------------------
 #' @description Imports and preprocesses detection data, receiver movement data,
-#'              and individual data.
+#' and individual data.
 #' @param datadir Directory containing the data files.
 #' @param timezone The timezone for the data.
 #' @return A list containing the preprocessed dataframes.
@@ -55,12 +55,12 @@ import_and_preprocess_data <- function(datadir, timezone) {
 # Function: filter_detections_by_tag_and_tag_deployment
 #-------------------------------------------------------------------------------
 #' @description Filter to remove unknown tags and detections that may have been
-#'              biased by tagging event.
+#' biased by tagging event.
 #' @param det Detection dataframe.
 #' @param IND Individual dataframe.
 #' @param filter Boolean to indicate if data collected during first 24 hours post
-#'               tagging should be removed, but also removes detections that
-#'               occurred prior to tag deployment and no detection thereafter.
+#' tagging should be removed, but also removes detections that occurred prior to
+#' tag deployment and no detection thereafter.
 #' @return Filtered detection dataframe.
 filter_detections_by_tag_and_tag_deployment <- function(det, IND, filter = FALSE) {
 
@@ -114,7 +114,7 @@ filter_detections_by_tag_and_tag_deployment <- function(det, IND, filter = FALSE
 # Function: assign_locations_to_detections
 #-------------------------------------------------------------------------------
 #' @description Assigns locations to detections based on receiver deployment
-#'              periods.
+#' periods.
 #' @param det Detection dataframe.
 #' @param VMOV Receiver movement dataframe.
 #' @return Detection dataframe with assigned locations.
