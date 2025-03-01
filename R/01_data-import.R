@@ -24,10 +24,6 @@ rm(list = ls())
 if (!require("pacman")) install.packages("pacman")
 pacman::p_load(here, tidyverse, googledrive, readxl)
 
-# Define Global Variables/Constants
-data_timezone <- "US/Eastern"
-data_directory <- here::here("data")
-
 # Function Definitions
 
 #-------------------------------------------------------------------------------
@@ -49,8 +45,6 @@ data_directory <- here::here("data")
 #' # )
 import_data_from_gdrive <- function(folder_url, file_pattern, sheet = 1, col_types = NULL) {
   tryCatch({
-    # Authenticate with Google Drive
-    drive_auth()
 
     # Get the folder and file
     folder <- drive_get(folder_url)
@@ -310,6 +304,13 @@ process_detection_files <- function(folder_path) {
 #-------------------------------------------------------------------------------
 # Main Script Logic
 #-------------------------------------------------------------------------------
+
+# Define Global Variables/Constants
+data_timezone <- "US/Eastern"
+data_directory <- here::here("data")
+
+# Authenticate with Google Drive
+drive_auth()
 
 # 1. Import Data
 otn_short <- import_data_from_gdrive(
