@@ -101,7 +101,7 @@ import_data_from_gdrive <- function(folder_url, file_pattern, sheet = 1, col_typ
 # Function: clean_column_names
 #-------------------------------------------------------------------------------
 #' @description Cleans column names by replacing spaces with dots,
-#'              removing parentheses, and removing dollar signs.
+#' removing parentheses, and removing dollar signs.
 #' @param data A data frame.
 #' @return A data frame with cleaned column names.
 clean_column_names <- function(data) {
