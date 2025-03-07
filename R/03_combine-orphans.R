@@ -57,7 +57,7 @@ import_data_from_google_drive <- function(folder_url, file_pattern) {
 #' @param poc_mapping Named vector mapping contact points to agencies.
 #' @param timezone Timezone for the data.
 #' @return A data frame containing the combined and mapped orphan detections.
-import_and_map_orphan_data <- function(folder_url, file_pattern, poc_mapping, timezone) {
+import_orphan_data <- function(folder_url, file_pattern, poc_mapping, timezone) {
   # Import data using the new function
   myfiles <- import_data_from_google_drive(folder_url, file_pattern)
 
@@ -254,7 +254,6 @@ data_files <- list(
 # Load Data
 loaded_data <- purrr::map(data_files, ~readRDS(file.path(data_directory, .x)))
 
-
 # Assign loaded data to variables
 rec.attr <- loaded_data$rec.attr
 andr.det <- loaded_data$andr.det
@@ -275,7 +274,7 @@ drive_auth()
 # OTN Matched Detections
 folder_path_otn <- "https://drive.google.com/drive/folders/1yoSVIIgJvZOigLv90xnIvqtSP_O_bweT"
 file_pattern_otn <- "\\.csv$"
-orph.otn <- import_and_map_orphan_data(folder_path_otn, file_pattern_otn, poc_mapping, data_timezone)
+orph.otn <- import_orphan_data(folder_path_otn, file_pattern_otn, poc_mapping, data_timezone)
 
 # Privately Sent Orphan Detections
 folder_path_priv <- "https://drive.google.com/drive/folders/19P4_s0gTFSw9mp1u6-1rPaisE5SJNGZR"
