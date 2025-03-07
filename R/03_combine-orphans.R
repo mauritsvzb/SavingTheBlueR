@@ -87,7 +87,7 @@ import_orphan_data <- function(folder_url, file_pattern, poc_mapping, timezone) 
       ) %>%
       mutate(
         time = as.POSIXct(time, format = "%Y-%m-%d %H:%M", tz = "UTC") %>%
-          lubridate::with_tz(tzone = timezone), # Convert UTC to local timezone
+          lubridate::with_tz(timezone), # Convert UTC to local timezone
         location = str_replace_all(location, c("BUOY" = "buoy", "buoyBACKREEF" = "Buoybackreef")), # Consistency
         elasmo = str_replace(elasmo, "A69-(9001|9006|1602|9002|1601|1303)-", ""), # Remove tag prefixes
         agency = case_when( # Agency from contact point
@@ -142,7 +142,7 @@ import_orphan_data_private <- function(folder_url, file_pattern, timezone) {
       ) %>%
       mutate(
         time = as.POSIXct(time, format = "%d/%m/%y %H:%M", tz = "UTC"),
-        time = with_tz(time, tzone = timezone), # Convert UTC to local timezone
+        time = with_tz(time, timezone), # Convert UTC to local timezone
         station = str_replace(station, "VR2AR-", ""),
         elasmo = str_replace(elasmo, "A69-9001-|A69-9006-|A69-1602-|A69-9002-|A69-1601-|A69-1303-",""),
         sensor.value = NA,
