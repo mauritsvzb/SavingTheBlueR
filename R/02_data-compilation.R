@@ -28,27 +28,32 @@ pacman::p_load(here, tidyverse, lubridate)
 #-------------------------------------------------------------------------------
 #' @description Imports and preprocesses detection data, receiver movement data,
 #' and individual data.
-#' @param datadir Directory containing the data files.
+#' @param data_directory Directory containing the data files.
 #' @param timezone The timezone for the data.
 #' @return A list containing the preprocessed dataframes.
-import_and_preprocess_data <- function(datadir, timezone) {
-  # Import detection data
-  det <- readRDS(file.path(datadir, "DET.rds")) %>%
-    mutate(
-      time = as.POSIXct(time, format = "%Y-%m-%d %H:%M", tz = "UTC") %>%
-        with_tz(timezone),
-      station = as.character(station),
-      elasmo = as.character(elasmo)
-    ) %>%
-    arrange(elasmo, time)
+import_and_preprocess_data <- function(data_directory, timezone) {
+  tryCatch({
+    # Import detection data
+    det <- readRDS(file.path(data_directory, "det.rds")) %>%
+      mutate(
+        time = as.POSIXct(time, format = "%Y-%m-%d %H:%M", tz = "UTC") %>%
+          with_tz(timezone),
+        station = as.character(station),
+        elasmo = as.character(elasmo)
+      ) %>%
+      arrange(elasmo, time)
 
-  # Import receiver movement data
-  VMOV <- readRDS(file.path(datadir, "VMOV.rds"))
+    # Import receiver movement data
+    vmov <- readRDS(file.path(data_directory, "vmov.rds"))
 
-  # Import individual data
-  IND <- readRDS(file.path(datadir, "IND.rds"))
+    # Import individual data
+    ind <- readRDS(file.path(data_directory, "ind.rds"))
 
-  list(det = det, VMOV = VMOV, IND = IND)
+    list(det = det, vmov = vmov, ind = ind)
+  }, error = function(e) {
+    cat("Error importing and preprocessing data:", e$message, "\n")
+    return(NULL)
+  })
 }
 
 #-------------------------------------------------------------------------------
@@ -57,24 +62,24 @@ import_and_preprocess_data <- function(datadir, timezone) {
 #' @description Filter to remove unknown tags and detections that may have been
 #' biased by tagging event.
 #' @param det Detection dataframe.
-#' @param IND Individual dataframe.
-#' @param filter Boolean to indicate if data collected during first 24 hours post
+#' @param ind Individual dataframe.
+#' @param filter_24h Boolean to indicate if data collected during first 24 hours post
 #' tagging should be removed, but also removes detections that occurred prior to
 #' tag deployment and no detection thereafter.
 #' @return Filtered detection dataframe.
-filter_detections_by_tag_and_tag_deployment <- function(det, IND, filter = FALSE) {
+filter_detections_by_tag_and_tag_deployment <- function(det, ind, filter_24h = FALSE) {
 
   # Check and convert data types if necessary
-  if (is.character(det$elasmo) && is.numeric(IND$acoustic_tag_id)) {
+  if (is.character(det$elasmo) && is.numeric(ind$acoustic_tag_id)) {
     det$elasmo <- as.numeric(det$elasmo)
     # cat("Converted 'elasmo' in det to numeric.\n")
-  } else if (is.numeric(det$elasmo) && is.character(IND$acoustic_tag_id)) {
-    IND$acoustic_tag_id <- as.character(IND$acoustic_tag_id)
+  } else if (is.numeric(det$elasmo) && is.character(ind$acoustic_tag_id)) {
+    ind$acoustic_tag_id <- as.character(ind$acoustic_tag_id)
     # cat("Converted 'acoustic_tag_id' in IND to character.\n")
   }
 
-  # Find the unique IDs that are in det but not in IND
-  excluded_ids <- setdiff(unique(det$elasmo), IND$acoustic_tag_id)
+  # Find the unique IDs that are in det but not in ind
+  excluded_ids <- setdiff(unique(det$elasmo), ind$acoustic_tag_id)
 
   # Print the excluded IDs
   if (length(excluded_ids) > 0) {
@@ -84,17 +89,17 @@ filter_detections_by_tag_and_tag_deployment <- function(det, IND, filter = FALSE
     cat("No transmitter IDs were excluded.\n")
   }
 
-  if (filter) {
-    IND <- IND %>% mutate(tagging_datetime = tagging_datetime + hours(24))
+  if (filter_24h) {
+    ind <- ind %>% mutate(tagging_datetime = tagging_datetime + hours(24))
   }
 
   # Perform the semi_join
   det_joined <- det %>%
-    semi_join(IND, by = c("elasmo" = "acoustic_tag_id"))
+    semi_join(ind, by = c("elasmo" = "acoustic_tag_id"))
 
   # Perform the filtering and capture excluded tags
   filtered_det <- det_joined %>%
-    filter(time >= IND$tagging_datetime[match(elasmo, IND$acoustic_tag_id)])
+    filter(time >= ind$tagging_datetime[match(elasmo, ind$acoustic_tag_id)])
 
   # Find tags excluded by the filter
   excluded_by_filter <- setdiff(unique(det_joined$elasmo), unique(filtered_det$elasmo))
@@ -116,15 +121,15 @@ filter_detections_by_tag_and_tag_deployment <- function(det, IND, filter = FALSE
 #' @description Assigns locations to detections based on receiver deployment
 #' periods.
 #' @param det Detection dataframe.
-#' @param VMOV Receiver movement dataframe.
+#' @param vmov Receiver movement dataframe.
 #' @return Detection dataframe with assigned locations.
-assign_locations_to_detections <- function(det, VMOV) {
+assign_locations_to_detections <- function(det, vmov) {
   suppressWarnings( #suppressWarnings() suppresses false alarm warnings originating from
-                    #the many duplicates that are created by the left_join(), which are
-                    #dealt with using the filter()
+    #the many duplicates that are created by the left_join(), which are
+    #dealt with using the filter()
     det %>%
       left_join(
-        VMOV %>%
+        vmov %>%
           select(`Receiver ID`, STATION_NO, `Date In`, `Date Out`) %>%
           rename(station = `Receiver ID`, location = STATION_NO),
         by = "station"
@@ -138,40 +143,53 @@ assign_locations_to_detections <- function(det, VMOV) {
 # Function: compile_data
 #-------------------------------------------------------------------------------
 #' @description Main function to compile and filter acoustic detection data.
-#' @param datadir Directory containing the data files.
+#' @param data_directory Directory containing the data files.
 #' @param timezone Timezone for the data.
-#' @param filter Boolean to indicate if first 24 hours should be filtered out.
+#' @param filter_24h Boolean to indicate if first 24 hours should be filtered out.
 #' @return Compiled and filtered detection dataframe.
-compile_data <- function(datadir, timezone, filter = FALSE) {
-  # Import and preprocess data
-  data <- import_and_preprocess_data(datadir, timezone)
+compile_data <- function(data_directory, timezone, filter_24h = FALSE) {
+  tryCatch({
+    # Import and preprocess data
+    data <- import_and_preprocess_data(data_directory, timezone)
 
-  # Filter detections by tag deployment
-  filtered_det <- filter_detections_by_tag_and_tag_deployment(data$det, data$IND, filter)
+    if (is.null(data)) {
+      stop("Data import and preprocessing failed.")
+    }
 
-  # Assign locations to detections
-  compiled_det <- assign_locations_to_detections(filtered_det, data$VMOV)
+    # Filter detections by tag deployment
+    filtered_det <- filter_detections_by_tag_and_tag_deployment(data$det, data$ind, filter_24h)
 
-  # Remove detections without assigned locations
-  compiled_det <- compiled_det %>% filter(!is.na(location))
+    # Assign locations to detections
+    compiled_det <- assign_locations_to_detections(filtered_det, data$vmov)
 
-  # Save compiled data
-  saveRDS(compiled_det, file.path(datadir, "DET_compiled.rds"))
+    # Remove detections without assigned locations
+    compiled_det <- compiled_det %>% filter(!is.na(location))
 
-  compiled_det
+    # Save compiled data
+    saveRDS(compiled_det, file.path(data_directory, "det_compiled.rds"))
+
+    return(compiled_det)
+  }, error = function(e) {
+    cat("Error in compile_data:", e$message, "\n")
+    return(NULL)
+  })
 }
 
 #-------------------------------------------------------------------------------
 # Main Script Execution
 #-------------------------------------------------------------------------------
 
-# Define Global Variables/Constants
+# Global Configuration
 data_timezone <- "US/Eastern"
 data_directory <- here::here("data")
 
 # Run the compile function
-compiled_data <- compile_data(data_directory, data_timezone, filter = TRUE)
+compiled_data <- compile_data(data_directory, data_timezone, filter_24h = TRUE)
 
 # Print summary of compiled data
-cat("Compilation complete. Summary of compiled data:\n")
-print(summary(compiled_data))
+if (!is.null(compiled_data)) {
+  cat("Compilation complete. Summary of compiled data:\n")
+  print(summary(compiled_data))
+} else {
+  cat("Compilation failed.\n")
+}
