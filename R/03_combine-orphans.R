@@ -264,8 +264,16 @@ poc_mapping <- c(
   "Joy Young (joy.young@myfwc.com)" = "FWC-TEQ (FL-Atl)",
   "Jeffery Merrell (jhmerrel@ncsu.edu)" = "NCSU (NC)",
   "Lucas Griffin (lucaspgriffin@gmail.com)" = "BTT (FL-Keys)",
-  "Sue Lowerre-Barbieri" = "UF (FL GOM)",
-  "Michael Dance" = "LSU (LA)"
+  "Sue Lowerre-Barbieri" = "UF (FL-GOM)",
+  "Michael Dance" = "LSU (LA)",
+  "Kate Choate (kate.choate@noaa.gov)" = "NOAA (VA)",
+  "Alejandro Acosta (alejandro.acosta@myfwc.com), Danielle Morley (danielle.morley@myfwc.com)" = "FWC (FL-Keys)",
+  "Shawn Harper (shawn.harper@ncaquriums.com), Nancy PhamHo (nancy.phamho@sezarc.com)" = "NC Aq. (NC)",
+  "Wilmelie Cruz-Marrero (wilmelie.cruz@noaa.gov)" = "NOAA (VA)",
+  "Brendan Runde (brendan.runde@tnc.org)" = "TNC (VA)",
+  "Brian Gervelis (brian@inspireenvironmental.com), Jeff Kneebone (jkneebone@neaq.org)" = "INSPIRE Env. (MA)",
+  "Edward Kim (ekim@neaq.org), Jeff Kneebone (jkneebone@neaq.org)" = "New England Aq. (MA)",
+  "Keith Dunton (kdunton@monmouth.edu)" = "Monmouth Uni (NJ)"
 )
 
 # Google Drive Authentication
