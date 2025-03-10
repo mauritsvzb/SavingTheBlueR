@@ -19,7 +19,7 @@ rm(list = ls())
 
 # Load Libraries
 if (!require("pacman")) install.packages("pacman")
-pacman::p_load(here, tidyverse, lubridate)
+pacman::p_load(here, tidyverse)
 
 # Function Definitions
 
