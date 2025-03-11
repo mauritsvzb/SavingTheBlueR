@@ -173,7 +173,7 @@ extract_receiver_deployment_data <- function(otn_data, excluded_locations = NULL
     ) %>%
     rename(
       location = station_no,
-      receiver_id = ins_serial_no,
+      station = ins_serial_no,
       date_in = deploy_date_time_yyyy_mm_dd_thh_mm_ss,
       date_out = recover_date_time_yyyy_mm_dd_thh_mm_ss
     ) %>%
