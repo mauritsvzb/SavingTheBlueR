@@ -22,7 +22,7 @@ rm(list = ls())
 
 # Load Libraries
 if (!require("pacman")) install.packages("pacman")
-pacman::p_load(here, tidyverse, googledrive, readxl)
+pacman::p_load(here, tidyverse, googledrive, readxl, janitor)
 
 # Function Definitions
 
@@ -97,20 +97,6 @@ import_data_from_gdrive <- function(folder_url, file_pattern, sheet = 1, col_typ
 }
 
 #-------------------------------------------------------------------------------
-# Function: clean_column_names
-#-------------------------------------------------------------------------------
-#' @description Cleans column names by replacing spaces with dots, removing parentheses, and removing dollar signs.
-#' @param data A data frame.
-#' @return A data frame with cleaned column names.
-clean_column_names <- function(data) {
-  names(data) <- names(data) %>%
-    gsub(" ", ".", .) %>%
-    gsub("\\(", "", .) %>%
-    gsub("\\)", "", .)
-  return(data)
-}
-
-#-------------------------------------------------------------------------------
 # Function: extract_receiver_metadata
 #-------------------------------------------------------------------------------
 #' @description Extracts receiver location metadata from the OTN short form data.
@@ -120,34 +106,32 @@ clean_column_names <- function(data) {
 extract_receiver_metadata <- function(otn_data, excluded_locations = NULL) {
   rec_attr <- otn_data %>%
     filter(
-      !(STATION_NO == "SHARKHOLE" & DEPLOY_LAT == "24.42684") & #remove retired location
-        INS_MODEL_NO == "VR2W" & #remove non-receivers
-        (is.null(excluded_locations) | !STATION_NO %in% excluded_locations) #exclude locations, if specified
+      !(station_no == "SHARKHOLE" & deploy_lat == "24.42684") & #remove retired location
+        ins_model_no == "VR2W" & #remove non-receivers
+        (is.null(excluded_locations) | !station_no %in% excluded_locations) #exclude locations, if specified
     ) %>%
     select( #select columns we want to keep
-      DEPLOY_LAT,
-      DEPLOY_LONG,
-      STATION_NO,
-      BOTTOM_DEPTH,
-      RISER_LENGTH,
-      INSTRUMENT_DEPTH
+      deploy_lat,
+      deploy_long,
+      station_no,
+      bottom_depth,
+      riser_length,
+      instrument_depth
     ) %>%
-    rename( #rename for convenience
-      GPS_N = DEPLOY_LAT,
-      GPS_W = DEPLOY_LONG,
-      location = STATION_NO
+    rename( #rename for clarity
+      location = station_no
     ) %>%
     mutate(
-      GPS_N = as.numeric(GPS_N),
-      GPS_W = as.numeric(GPS_W),
+      deploy_lat = as.numeric(deploy_lat),
+      deploy_long = as.numeric(deploy_long),
       agency = "STB (BAH)"
     ) %>%
     arrange(
       location
     ) %>%
     distinct( #remove duplicates if any
-      GPS_N,
-      GPS_W,
+      deploy_lat,
+      deploy_long,
       location,
       .keep_all = TRUE
     )
@@ -166,35 +150,36 @@ extract_receiver_metadata <- function(otn_data, excluded_locations = NULL) {
 extract_receiver_deployment_data <- function(otn_data, excluded_locations = NULL, timezone) {
   rec_mov <- otn_data %>%
     filter(
-      !(STATION_NO == "SHARKHOLE" & DEPLOY_LAT == "24.42684") & #retired station
-        INS_MODEL_NO == "VR2W" &
-        (is.null(excluded_locations) | !STATION_NO %in% excluded_locations) & #exclude locations, if specified
-        `DEPLOY_DATE_TIME...yyyy-mm-ddThh:mm:ss` != "2022-xxxxx" & #remove rows with incomplete metadata
-        `DATA_DOWNLOADED.y/n` == "Y" & #only keep rows that show a complete receiver cycle (deploy + retrieve)
-        !(STATION_NO == "On Buoy" & `DEPLOY_DATE_TIME...yyyy-mm-ddThh:mm:ss` == "2023-06-23T15:00:00") #NOTE: TEMPORARY FILTER. Awaiting (meta)data for this location
+      !(station_no == "SHARKHOLE" & deploy_lat == "24.42684") & #retired station
+        ins_model_no == "VR2W" &
+        (is.null(excluded_locations) | !station_no %in% excluded_locations) & #exclude locations, if specified
+        deploy_date_time_yyyy_mm_dd_thh_mm_ss != "2022-xxxxx" & #remove rows with incomplete metadata
+        data_downloaded_y_n == "Y" & #only keep rows that show a complete receiver cycle (deploy + retrieve)
+        !(station_no == "On Buoy" & deploy_date_time_yyyy_mm_dd_thh_mm_ss == "2023-06-23T15:00:00") #NOTE: TEMPORARY FILTER. Awaiting (meta)data for this location
     ) %>%
     select(
-      INS_SERIAL_NO,
-      `DEPLOY_DATE_TIME...yyyy-mm-ddThh:mm:ss`,
-      `RECOVER_DATE_TIME.yyyy-mm-ddThh:mm:ss`,
-      STATION_NO,
-      COMMENTS
+      ins_serial_no,
+      deploy_date_time_yyyy_mm_dd_thh_mm_ss,
+      recover_date_time_yyyy_mm_dd_thh_mm_ss,
+      station_no,
+      comments
     ) %>%
     mutate(
-      INS_SERIAL_NO = str_remove(INS_SERIAL_NO, "\\.0$"), #remove ".0" from strings; these are unexplainably introduced when importing directly from google drive
-      `DEPLOY_DATE_TIME...yyyy-mm-ddThh:mm:ss` = str_replace(`DEPLOY_DATE_TIME...yyyy-mm-ddThh:mm:ss`, "T", " "), #remove the "T" in the middle
-      `RECOVER_DATE_TIME.yyyy-mm-ddThh:mm:ss` = str_replace(`RECOVER_DATE_TIME.yyyy-mm-ddThh:mm:ss`, "T", " "),
-      `DEPLOY_DATE_TIME...yyyy-mm-ddThh:mm:ss` = as.POSIXct(`DEPLOY_DATE_TIME...yyyy-mm-ddThh:mm:ss`, format = "%Y-%m-%d %H:%M:%S", tz = timezone), #convert to posixct
-      `RECOVER_DATE_TIME.yyyy-mm-ddThh:mm:ss` = as.POSIXct(`RECOVER_DATE_TIME.yyyy-mm-ddThh:mm:ss`, format = "%Y-%m-%d %H:%M:%S", tz = timezone)
+      ins_serial_no = str_remove(ins_serial_no, "\\.0$"), #remove ".0" from strings; these are unexplainably introduced when importing directly from google drive
+      deploy_date_time_yyyy_mm_dd_thh_mm_ss = str_replace(deploy_date_time_yyyy_mm_dd_thh_mm_ss, "T", " "), #remove the "T" in the middle
+      recover_date_time_yyyy_mm_dd_thh_mm_ss = str_replace(recover_date_time_yyyy_mm_dd_thh_mm_ss, "T", " "),
+      deploy_date_time_yyyy_mm_dd_thh_mm_ss = as.POSIXct(deploy_date_time_yyyy_mm_dd_thh_mm_ss, format = "%Y-%m-%d %H:%M:%S", tz = timezone), #convert to posixct
+      recover_date_time_yyyy_mm_dd_thh_mm_ss = as.POSIXct(recover_date_time_yyyy_mm_dd_thh_mm_ss, format = "%Y-%m-%d %H:%M:%S", tz = timezone)
     ) %>%
     rename(
-      'Receiver ID' = INS_SERIAL_NO,
-      'Date In' = `DEPLOY_DATE_TIME...yyyy-mm-ddThh:mm:ss`,
-      'Date Out' = `RECOVER_DATE_TIME.yyyy-mm-ddThh:mm:ss`
+      location = station_no,
+      receiver_id = ins_serial_no,
+      date_in = deploy_date_time_yyyy_mm_dd_thh_mm_ss,
+      date_out = recover_date_time_yyyy_mm_dd_thh_mm_ss
     ) %>%
     arrange(
-      STATION_NO,
-      "Date In"
+      location,
+      date_in
     ) %>%
     distinct()
 
@@ -271,7 +256,8 @@ process_detection_files <- function(folder_path) {
     df %>%
       select(
         `Date and Time (UTC)`,
-        Receiver, Transmitter,
+        Receiver,
+        Transmitter,
         `Sensor Value`,
         `Sensor Unit`
       ) %>%
@@ -302,49 +288,74 @@ process_detection_files <- function(folder_path) {
 #-------------------------------------------------------------------------------
 # Main Script Execution
 #-------------------------------------------------------------------------------
-
 # Global Configuration
-data_timezone <- "US/Eastern"
-data_directory <- here::here("data")
+config <- list(
+  data_timezone = "US/Eastern",
+  data_directory = here::here("data"),
+  gdrive_auth_method = "default", # Options: "default", "service_account", "custom_oauth"
+  excluded_locations = c(
+    "SOM1", "SOM2", "BBC1", "MB2", "MB3", "MB4", "MB5",
+    "BWC", "GCC", "Deep Drop 2", "Salvador",
+    "Deep Drop 1", "Bightbackreef", "On Buoy"
+  ),
+  otn_short_folder_url = "https://drive.google.com/drive/folders/1kShVtR3it9WUlVg9L4HzFcNA9R2_LYrN",
+  otn_short_file_pattern = "otn-instrument-deployment-short-form_GUTTRIDGE_2024_SEPT 24_1.xlsx",
+  catch_folder_url = "https://drive.google.com/drive/folders/1LzoZdCqBDhpYQEBc6gb-M2zBdFgKnQop",
+  catch_file_pattern = "SharkCapture.xlsx",
+  detection_folder_path = "https://drive.google.com/drive/folders/1oE72VHV4L_Gwm5zk48eEtOSBhMvzu99q"
+)
 
 # Authenticate with Google Drive
-drive_auth()
+tryCatch({
+  if (config$gdrive_auth_method == "service_account") {
+    drive_auth(path = Sys.getenv("SERVICE_ACCOUNT_JSON"))
+  } else if (config$gdrive_auth_method == "custom_oauth") {
+    drive_auth_configure(
+      path = Sys.getenv("CUSTOM_OAUTH_JSON")
+    )
+    drive_auth()
+  } else {
+    drive_auth()
+  }
+}, error = function(e) {
+  stop("Google Drive authentication failed: ", e$message)
+})
 
-# 1. Import Data
-otn_short <- import_data_from_gdrive(
-  folder_url = "https://drive.google.com/drive/folders/1kShVtR3it9WUlVg9L4HzFcNA9R2_LYrN",
-  file_pattern = "otn-instrument-deployment-short-form_GUTTRIDGE_2024_SEPT 24_1.xlsx",
-  sheet = 2
-)
+tryCatch({
+  # Import Data
+  otn_short <- import_data_from_gdrive(
+    folder_url = config$otn_short_folder_url,
+    file_pattern = config$otn_short_file_pattern,
+    sheet = 2
+  )
 
-catch <- import_data_from_gdrive(
-  folder_url = "https://drive.google.com/drive/folders/1LzoZdCqBDhpYQEBc6gb-M2zBdFgKnQop",
-  file_pattern = "SharkCapture.xlsx",
-  sheet = 1
-)
+  catch <- import_data_from_gdrive(
+    folder_url = config$catch_folder_url,
+    file_pattern = config$catch_file_pattern,
+    sheet = 1
+  )
 
-# 2. Clean Column Names
-otn_short <- clean_column_names(otn_short)
+  # 2. Clean Column Names
+  otn_short <- janitor::clean_names(otn_short)
 
-# 3. Define excluded receiver stations that were only deployed temporarily
-excluded_locations <- c("SOM1", "SOM2", "BBC1", "MB2", "MB3", "MB4", "MB5", "BWC", "GCC",
-                       "Deep Drop 2", "Salvador", "Deep Drop 1", "Bightbackreef", "On Buoy")
+  # 3. Extract Metadata
+  rec_attr <- extract_receiver_metadata(otn_short, excluded_locations = config$excluded_locations)
+  rec_mov  <- extract_receiver_deployment_data(otn_short, excluded_locations = config$excluded_locations, config$data_timezone)
+  ind_attr <- extract_tag_metadata(catch, config$data_timezone)
 
-# 4. Extract Metadata
-rec_attr <- extract_receiver_metadata(otn_short, excluded_locations = excluded_locations)
-rec_mov  <- extract_receiver_deployment_data(otn_short, excluded_locations = excluded_locations, data_timezone)
-ind_attr <- extract_tag_metadata(catch, data_timezone)
+  # 4. Process Detection Files
+  raw_det <- process_detection_files(config$detection_folder_path)
 
-# 5. Process Detection Files
-detection_folder_path <- "https://drive.google.com/drive/folders/1oE72VHV4L_Gwm5zk48eEtOSBhMvzu99q"
-raw_det <- process_detection_files(detection_folder_path)
+  # 5. Save Processed Data
+  data_files <- list(
+    vloc_stb = rec_attr,
+    vmov = rec_mov,
+    ind = ind_attr,
+    det = raw_det
+  )
 
-# 6. Save Data
-data_files <- list(
-  vloc_stb = rec_attr,
-  vmov = rec_mov,
-  ind = ind_attr,
-  det = raw_det
-)
+  purrr::iwalk(data_files, ~saveRDS(.x, file.path(config$data_directory, paste0(.y, ".rds"))))
 
-purrr::iwalk(data_files, ~saveRDS(.x, file.path(data_directory, paste0(.y, ".rds"))))
+}, error = function(e) {
+  message("Error during execution: ", e$message)
+})
