@@ -130,13 +130,12 @@ assign_locations_to_detections <- function(det, vmov) {
     det %>%
       left_join(
         vmov %>%
-          select(`Receiver ID`, STATION_NO, `Date In`, `Date Out`) %>%
-          rename(station = `Receiver ID`, location = STATION_NO),
-        by = "station"
+          select(station, location, date_in, date_out),
+          by = "station"
       )
   ) %>%
-    filter(time >= `Date In`, time <= `Date Out`) %>%
-    select(-`Date In`, -`Date Out`)
+    filter(time >= date_in, time <= date_out) %>%
+    select(-date_in, -date_out)
 }
 
 #-------------------------------------------------------------------------------
@@ -178,13 +177,18 @@ compile_data <- function(data_directory, timezone, filter_24h = FALSE) {
 #-------------------------------------------------------------------------------
 # Main Script Execution
 #-------------------------------------------------------------------------------
-
 # Global Configuration
-data_timezone <- "US/Eastern"
-data_directory <- here::here("data")
+config <- list(
+  data_timezone = "US/Eastern",
+  data_directory = here::here("data")
+)
 
-# Run the compile function
-compiled_data <- compile_data(data_directory, data_timezone, filter_24h = TRUE)
+tryCatch({
+  # Run the compile function
+  compiled_data <- compile_data(config$data_directory, config$data_timezone, filter_24h = TRUE)
+}, error = function(e) {
+  stop("Data compilation failed: ", e$message)
+})
 
 # Print summary of compiled data
 if (!is.null(compiled_data)) {
