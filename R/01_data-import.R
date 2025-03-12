@@ -292,7 +292,6 @@ process_detection_files <- function(folder_path) {
 config <- list(
   data_timezone = "US/Eastern",
   data_directory = here::here("data"),
-  gdrive_auth_method = "default", # Options: "default", "service_account", "custom_oauth"
   excluded_locations = c(
     "SOM1", "SOM2", "BBC1", "MB2", "MB3", "MB4", "MB5",
     "BWC", "GCC", "Deep Drop 2", "Salvador",
@@ -307,18 +306,9 @@ config <- list(
 
 # Authenticate with Google Drive
 tryCatch({
-  if (config$gdrive_auth_method == "service_account") {
-    drive_auth(path = Sys.getenv("SERVICE_ACCOUNT_JSON"))
-  } else if (config$gdrive_auth_method == "custom_oauth") {
-    drive_auth_configure(
-      path = Sys.getenv("CUSTOM_OAUTH_JSON")
-    )
-    drive_auth()
-  } else {
-    drive_auth()
-  }
+  drive_auth()
 }, error = function(e) {
-  stop("Google Drive authentication failed: ", e$message)
+  stop("Failed to authenticate with Google Drive: ", e$message)
 })
 
 tryCatch({
