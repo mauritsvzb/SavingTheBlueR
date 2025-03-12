@@ -199,3 +199,6 @@ datasummary <- function(
   message("Analysis complete. Outputs saved to: ", saveloc)
 }
 
+# Execute the function
+datasummary()
+
