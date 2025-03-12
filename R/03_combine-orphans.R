@@ -112,8 +112,8 @@ import_orphan_data <- function(folder_url, file_pattern, poc_mapping,
         "sensor_value" = sensorvalue,
         "sensor_unit" = sensorunit,
         "location" = station,
-        "GPS_N" = latitude,
-        "GPS_W" = longitude
+        "deploy_lat" = latitude,
+        "deploy_long" = longitude
       ) %>%
       mutate(
         time = as.POSIXct(time, format = "%Y-%m-%d %H:%M", tz = "UTC") %>%
@@ -149,12 +149,13 @@ import_orphan_data <- function(folder_url, file_pattern, poc_mapping,
 #' and performs initial data cleaning.
 #' @param folder_url URL of the Google Drive folder containing the data.
 #' @param file_pattern Pattern to match the CSV files in the folder.
+#' @param poc_mapping Named vector mapping contact points to agencies.
 #' @param timezone Timezone for the data.
 #' @param excluded_locations (Optional) A vector of locations to exclude.
 #' Defaults to NULL.
 #' @return A data frame containing the combined and processed privately sent
 #'   orphan detections.
-import_orphan_data_private <- function(folder_url, file_pattern, timezone, excluded_locations = NULL) {
+import_orphan_data_private <- function(folder_url, file_pattern, poc_mapping, timezone, excluded_locations = NULL) {
 
   # Input validation: Check if excluded_locations is a character vector
   if (!is.null(excluded_locations) && !is.character(excluded_locations)) {
@@ -186,8 +187,8 @@ import_orphan_data_private <- function(folder_url, file_pattern, timezone, exclu
         "station" = Receiver,
         "elasmo" = Transmitter,
         "location" = `Station Name`,
-        "GPS_N" = Latitude,
-        "GPS_W" = Longitude
+        "deploy_lat" = Latitude,
+        "deploy_long" = Longitude
       ) %>%
       mutate(
         time = as.POSIXct(time, format = "%d/%m/%y %H:%M", tz = "UTC"),
@@ -198,7 +199,7 @@ import_orphan_data_private <- function(folder_url, file_pattern, timezone, exclu
                              ""),
         sensor_value = NA,
         sensor_unit = NA,
-        agency = case_when( # Match point of contact to right agency as per definitions above
+        agency = case_when( # Match point of contact to right agency
           contact_poc %in% names(poc_mapping) ~ poc_mapping[contact_poc],
           TRUE ~ "" #default value if not in the mapping
         )
@@ -212,28 +213,14 @@ import_orphan_data_private <- function(folder_url, file_pattern, timezone, exclu
         sensor_value,
         sensor_unit,
         location,
-        GPS_N,
-        GPS_W,
+        deploy_lat,
+        deploy_long,
         agency,
         -contact_poc # Remove the contact_poc column
       ) %>%
       distinct() #ensures any duplicates are filtered out
   }) %>%
     bind_rows() # Combine all data frames
-}
-
-#-------------------------------------------------------------------------------
-# Function: clean_strings
-#-------------------------------------------------------------------------------
-#' @description Cleans a vector of strings by converting to lowercase,
-#' removing leading/trailing whitespace, and collapsing multiple spaces.
-#' @param strings A character vector.
-#' @return A cleaned character vector.
-clean_strings <- function(strings) {
-  strings %>%
-    tolower() %>%
-    str_trim() %>%
-    str_replace_all("\\s+", " ")
 }
 
 #-------------------------------------------------------------------------------
@@ -247,8 +234,8 @@ correct_gps_coordinates <- function(df) {
   df %>%
     group_by(location) %>%
     mutate(
-      GPS_W = first(GPS_W[which.max(str_count(GPS_W, "\\d"))]),
-      GPS_N = first(GPS_N[which.max(str_count(GPS_N, "\\d"))])
+      deploy_long = first(deploy_long[which.max(str_count(deploy_long, "\\d"))]),
+      deploy_lat = first(deploy_lat[which.max(str_count(deploy_lat, "\\d"))])
     ) %>%
     ungroup()
 }
@@ -263,11 +250,11 @@ correct_gps_coordinates <- function(df) {
 update_receiver_attributes <- function(rec_attr, orph) {
   # Extract unique combinations from orphan data
   unique_orph_loc <- orph %>%
-    select(GPS_W, GPS_N, location, agency) %>%
+    select(deploy_long, deploy_lat, location, agency) %>%
     mutate(
-      GPS_W = as.numeric(GPS_W),
-      GPS_N = as.numeric(GPS_N),
-      INSTRUMENT_DEPTH = case_when(
+      deploy_long = as.numeric(deploy_long),
+      deploy_lat = as.numeric(deploy_lat),
+      instrument_depth = case_when(
         location == "rd west - acoustic release" ~ 178,
         location == "rd east - acoustic release" ~ 182,
         location == "rd north - acoustic release" ~ 153,
@@ -275,17 +262,17 @@ update_receiver_attributes <- function(rec_attr, orph) {
         TRUE ~ NA_real_
       )
     ) %>%
-    distinct(GPS_W, GPS_N, .keep_all = TRUE)
+    distinct(deploy_long, deploy_lat, .keep_all = TRUE)
 
   # Bind and add more metadata
   rec_attr %>%
     bind_rows(unique_orph_loc) %>%
     mutate(
-      BOTTOM_DEPTH = case_when(
-        is.na(BOTTOM_DEPTH) & location == "RD WEST - ACOUSTIC RELEASE" ~ 178,
-        is.na(BOTTOM_DEPTH) & location == "RD EAST - ACOUSTIC RELEASE" ~ 182,
-        is.na(BOTTOM_DEPTH) & location == "BIG ROCK" ~ 100.5,
-        TRUE ~ BOTTOM_DEPTH
+      bottom_depth = case_when(
+        is.na(bottom_depth) & location == "RD WEST - ACOUSTIC RELEASE" ~ 178,
+        is.na(bottom_depth) & location == "RD EAST - ACOUSTIC RELEASE" ~ 182,
+        is.na(bottom_depth) & location == "BIG ROCK" ~ 100.5,
+        TRUE ~ bottom_depth
       )
     )
 }
@@ -293,83 +280,79 @@ update_receiver_attributes <- function(rec_attr, orph) {
 #-------------------------------------------------------------------------------
 # Main Script Execution
 #-------------------------------------------------------------------------------
-
 # Global Configuration
-data_timezone <- "US/Eastern"
-data_directory <- here::here("data")
-
-# Define the list of files to load
-data_files <- list(
-  rec_attr = "vloc_stb.rds",
-  andr_det = "det_compiled.rds"
+config <- list(
+  data_timezone = "US/Eastern",
+  data_directory = here::here("data"),
+  data_files = list(
+    rec_attr = "vloc_stb.rds",
+    andr_det = "det_compiled.rds"
+  ),
+  # Define point of contact mapping
+  poc_mapping = c(
+    "Olivia Dixon (liv@beneaththewaves.org)" = "BTW (BAH)",
+    "Joy Young (joy.young@myfwc.com)" = "FWC-TEQ (FL-Atl)",
+    "Jeffery Merrell (jhmerrel@ncsu.edu)" = "NCSU (NC)",
+    "Lucas Griffin (lucaspgriffin@gmail.com)" = "BTT (FL-Keys)",
+    "Sue Lowerre-Barbieri" = "UF (FL-GOM)",
+    "Michael Dance" = "LSU (LA)",
+    "Kate Choate (kate.choate@noaa.gov)" = "NOAA (VA)",
+    "Alejandro Acosta (alejandro.acosta@myfwc.com), Danielle Morley (danielle.morley@myfwc.com)" = "FWC (FL-Keys)",
+    "Shawn Harper (shawn.harper@ncaquriums.com), Nancy PhamHo (nancy.phamho@sezarc.com)" = "NC Aq. (NC)",
+    "Wilmelie Cruz-Marrero (wilmelie.cruz@noaa.gov)" = "NOAA (VA)",
+    "Brendan Runde (brendan.runde@tnc.org)" = "TNC (VA)",
+    "Brian Gervelis (brian@inspireenvironmental.com), Jeff Kneebone (jkneebone@neaq.org)" = "INSPIRE Env. (MA)",
+    "Edward Kim (ekim@neaq.org), Jeff Kneebone (jkneebone@neaq.org)" = "New England Aq. (MA)",
+    "Keith Dunton (kdunton@monmouth.edu)" = "Monmouth Uni (NJ)"
+  ),
+  google_drive = list(
+    otn_folder = "https://drive.google.com/drive/folders/1yoSVIIgJvZOigLv90xnIvqtSP_O_bweT",
+    private_folder = "https://drive.google.com/drive/folders/19P4_s0gTFSw9mp1u6-1rPaisE5SJNGZR",
+    file_pattern = "\\.csv$"
+  )
 )
 
 # Load Data
-loaded_data <- purrr::map(data_files, ~readRDS(file.path(data_directory, .x)))
-
-# Assign loaded data to variables
+loaded_data <- purrr::map(config$data_files, ~readRDS(file.path(config$data_directory, .x)))
 rec_attr <- loaded_data$rec_attr
 andr_det <- loaded_data$andr_det
 
-# Define point of contact mapping
-poc_mapping <- c(
-  "Olivia Dixon (liv@beneaththewaves.org)" = "BTW (BAH)",
-  "Joy Young (joy.young@myfwc.com)" = "FWC-TEQ (FL-Atl)",
-  "Jeffery Merrell (jhmerrel@ncsu.edu)" = "NCSU (NC)",
-  "Lucas Griffin (lucaspgriffin@gmail.com)" = "BTT (FL-Keys)",
-  "Sue Lowerre-Barbieri" = "UF (FL-GOM)",
-  "Michael Dance" = "LSU (LA)",
-  "Kate Choate (kate.choate@noaa.gov)" = "NOAA (VA)",
-  "Alejandro Acosta (alejandro.acosta@myfwc.com), Danielle Morley (danielle.morley@myfwc.com)" = "FWC (FL-Keys)",
-  "Shawn Harper (shawn.harper@ncaquriums.com), Nancy PhamHo (nancy.phamho@sezarc.com)" = "NC Aq. (NC)",
-  "Wilmelie Cruz-Marrero (wilmelie.cruz@noaa.gov)" = "NOAA (VA)",
-  "Brendan Runde (brendan.runde@tnc.org)" = "TNC (VA)",
-  "Brian Gervelis (brian@inspireenvironmental.com), Jeff Kneebone (jkneebone@neaq.org)" = "INSPIRE Env. (MA)",
-  "Edward Kim (ekim@neaq.org), Jeff Kneebone (jkneebone@neaq.org)" = "New England Aq. (MA)",
-  "Keith Dunton (kdunton@monmouth.edu)" = "Monmouth Uni (NJ)"
-)
+# Authenticate with Google Drive
+tryCatch({
+  drive_auth()
+}, error = function(e) {
+  stop("Failed to authenticate with Google Drive: ", e$message)
+})
 
-# Google Drive Authentication
-drive_auth()
+# Import and Process Orphan Data
+orph_otn <- import_orphan_data(config$google_drive$otn_folder,
+                               config$google_drive$file_pattern,
+                               config$poc_mapping,
+                               config$data_timezone) #OTN Matched Detections
+orph_priv <- import_orphan_data_private(config$google_drive$private_folder,
+                                        config$google_drive$file_pattern,
+                                        config$poc_mapping,
+                                        config$data_timezone) #Privately Sent Orphan Detections
 
-# OTN Matched Detections
-folder_path_otn <- "https://drive.google.com/drive/folders/1yoSVIIgJvZOigLv90xnIvqtSP_O_bweT"
-file_pattern_otn <- "\\.csv$"
-orph_otn <- import_orphan_data(folder_path_otn, file_pattern_otn, poc_mapping, data_timezone)
-
-# Privately Sent Orphan Detections
-folder_path_priv <- "https://drive.google.com/drive/folders/19P4_s0gTFSw9mp1u6-1rPaisE5SJNGZR"
-file_pattern_priv <- "\\.csv$"
-orph_priv <- import_orphan_data_private(folder_path_priv, file_pattern_priv, data_timezone)
-
-# Combine orphan detections
+# Combine and Process Orphan Detections
 orph <- bind_rows(orph_otn, orph_priv)
-
-# Clean up location strings
-orph$location <- clean_strings(orph$location)
-
-# Correct inconsistent GPS coordinates
-orph <- correct_gps_coordinates(orph)
-
-# Update receiver attributes
-rec_attr <- update_receiver_attributes(rec_attr, orph)
-
-# Match the columns of orph to those of andr.det
-orph <- select(orph, -GPS_W, -GPS_N)
-
-# Convert orph elasmo data type
+orph$location <- str_replace_all(str_squish(str_to_lower(orph$location)), "\\s", "_") #Converts strings to lowercase, trim leading/trailing whitespace
+# and reduce multiple internal spaces to single spaces, replace all remaining spaces with underscores
+orph <- correct_gps_coordinates(orph) #Correct inconsistent GPS coordinates
 orph$elasmo <- as.numeric(orph$elasmo)
+rec_attr <- update_receiver_attributes(rec_attr, orph) #Update receiver attributes
+orph <- select(orph, -deploy_long, -deploy_lat) #Match the columns of orph to those of andr.det
 
-# Merge all detections together
+# Merge All Detections
 det <- bind_rows(andr_det, orph)
 
 # Define data files for saving
-data_files_save <- list(
+data_to_save <- list(
   vloc_stb = rec_attr,
   det_tot = det
 )
 
 # Save data files using iwalk
-purrr::iwalk(data_files_save, ~saveRDS(.x, file.path(data_directory, paste0(.y, ".rds"))))
+purrr::iwalk(data_to_save, ~saveRDS(.x, file.path(config$data_directory, paste0(.y, ".rds"))))
 
 cat("Script completed successfully.\n")
