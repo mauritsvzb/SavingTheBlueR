@@ -51,3 +51,6 @@ rsconnect/
 # Data folder
 data/
 
+# Output folder
+output/
+
