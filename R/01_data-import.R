@@ -124,7 +124,8 @@ extract_receiver_metadata <- function(otn_data, excluded_locations = NULL) {
     mutate(
       deploy_lat = as.numeric(deploy_lat),
       deploy_long = as.numeric(deploy_long),
-      agency = "STB (BAH)"
+      agency = "STB (BAH)",
+      location = str_replace_all(str_squish(str_to_lower(location)), "\\s", "_") #Converts strings to lowercase, trim leading/trailing whitespace
     ) %>%
     arrange(
       location
@@ -169,7 +170,8 @@ extract_receiver_deployment_data <- function(otn_data, excluded_locations = NULL
       deploy_date_time_yyyy_mm_dd_thh_mm_ss = str_replace(deploy_date_time_yyyy_mm_dd_thh_mm_ss, "T", " "), #remove the "T" in the middle
       recover_date_time_yyyy_mm_dd_thh_mm_ss = str_replace(recover_date_time_yyyy_mm_dd_thh_mm_ss, "T", " "),
       deploy_date_time_yyyy_mm_dd_thh_mm_ss = as.POSIXct(deploy_date_time_yyyy_mm_dd_thh_mm_ss, format = "%Y-%m-%d %H:%M:%S", tz = timezone), #convert to posixct
-      recover_date_time_yyyy_mm_dd_thh_mm_ss = as.POSIXct(recover_date_time_yyyy_mm_dd_thh_mm_ss, format = "%Y-%m-%d %H:%M:%S", tz = timezone)
+      recover_date_time_yyyy_mm_dd_thh_mm_ss = as.POSIXct(recover_date_time_yyyy_mm_dd_thh_mm_ss, format = "%Y-%m-%d %H:%M:%S", tz = timezone),
+      station_no = str_replace_all(str_squish(str_to_lower(station_no)), "\\s", "_") #Converts strings to lowercase, trim leading/trailing whitespace
     ) %>%
     rename(
       location = station_no,
@@ -338,7 +340,7 @@ tryCatch({
 
   # 5. Save Processed Data
   data_files <- list(
-    vloc_stb = rec_attr,
+    vloc = rec_attr,
     vmov = rec_mov,
     ind = ind_attr,
     det = raw_det
