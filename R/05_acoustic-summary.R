@@ -149,27 +149,27 @@ save_analysis_outputs <- function(object, save_path, file_name, interval_id = NU
 # Main Function: datasummary
 #-------------------------------------------------------------------------------
 #' @description Main function to generate detection summaries.
-#' @param dir Base directory path.
-#' @param saveloc Output directory path.
+#' @param data_directory Base directory path.
+#' @param output_directory Output directory path.
 #' @param timezone Timezone for date handling.
 #' @param start.p Optional start date (POSIXct).
 #' @param timeint Use time intervals (TRUE/FALSE).
 #' @param agency Group by agency (TRUE/FALSE).
 datasummary <- function(
-    dir = here::here("data"),
-    saveloc = here::here("output"),
+    data_directory = here::here("data"),
+    output_directory = here::here("output"),
     timezone = "US/Eastern",
     start.p = NULL,
     timeint = FALSE,
     agency = FALSE
 ) {
   # Create output directory if needed
-  if (!dir.exists(saveloc)) dir.create(saveloc, recursive = TRUE)
+  if (!dir.exists(output_directory)) dir.create(output_directory, recursive = TRUE)
 
   # Load data
-  det_cleaned <- readRDS(file.path(dir, "DET_cleaned.rds"))
+  det_cleaned <- readRDS(file.path(data_directory, "DET_cleaned.rds"))
 
-  ind_data <- readRDS(file.path(dir, "IND.rds"))
+  ind_data <- readRDS(file.path(data_directory, "IND.rds"))
 
   # Create time intervals
   time_data <- create_time_intervals(det_cleaned, start.p, timeint)
@@ -178,7 +178,7 @@ datasummary <- function(
   # Save time interval metadata
   save_analysis_outputs(
     tibble(index = seq_along(timeseq), period = timeseq),
-    saveloc,
+    output_directory,
     "dattime"
   )
 
@@ -189,14 +189,14 @@ datasummary <- function(
 
     # Generate and save individual summaries
     individual_summary <- generate_individual_summary(interval_data, ind_data, timezone)
-    save_analysis_outputs(individual_summary, saveloc, "summary", k)
+    save_analysis_outputs(individual_summary, output_directory, "summary", k)
 
     # Generate and save detection matrices
     detection_matrix <- generate_detection_matrix(interval_data, agency)
-    save_analysis_outputs(detection_matrix, saveloc, "matrix_ind_location", k)
+    save_analysis_outputs(detection_matrix, output_directory, "matrix_ind_location", k)
   })
 
-  message("Analysis complete. Outputs saved to: ", saveloc)
+  message("Analysis complete. Outputs saved to: ", output_directory)
 }
 
 # Execute the function
