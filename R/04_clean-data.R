@@ -138,7 +138,7 @@ calculate_removal_stats <- function(original_count, cleaned_count) {
 #-------------------------------------------------------------------------------
 # Main Script Execution
 #-------------------------------------------------------------------------------
-# Configuration
+# Global Configuration
 config <- list(
   input_file = "det_tot.rds",
   output_file = "det_cleaned.rds",
