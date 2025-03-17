@@ -285,7 +285,7 @@ config <- list(
   data_timezone = "US/Eastern",
   data_directory = here::here("data"),
   data_files = list(
-    rec_attr = "vloc_stb.rds",
+    rec_attr = "vloc.rds",
     andr_det = "det_compiled.rds"
   ),
   # Define point of contact mapping
@@ -348,7 +348,7 @@ det <- bind_rows(andr_det, orph)
 
 # Define data files for saving
 data_to_save <- list(
-  vloc_stb = rec_attr,
+  vloc = rec_attr,
   det_tot = det
 )
 
