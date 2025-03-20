@@ -88,6 +88,42 @@ load_and_prepare_data <- function(config, exclude_site = NULL, filter_species = 
 }
 
 #-------------------------------------------------------------------------------
+# Function: filter_by_time_window
+#-------------------------------------------------------------------------------
+#' @description Filters the data by a specified time window.
+#' @param df Data frame to filter.
+#' @param config List containing configuration parameters, including start_time and end_time.
+#' @return Filtered data frame, or NULL if an error occurs.
+filter_by_time_window <- function(df, config) {
+  tryCatch({
+    # Check if start_time and end_time are in config
+    if (is.null(config$start_time) || is.null(config$end_time)) {
+      message("start_time and/or end_time not specified in config; returning full dataset.")
+      return(df)  # Return original data if time window not specified
+    }
+
+    # Convert start and end times to POSIXct with correct time zone
+    start_time <- as.POSIXct(config$start_time, tz = config$dat.TZ)
+    end_time <- as.POSIXct(config$end_time, tz = config$dat.TZ)
+
+    # Check if start_time and end_time are valid POSIXct objects
+    if (is.na(start_time) || is.na(end_time)) {
+      stop("Invalid start_time or end_time format in config.")
+    }
+
+    # Filter data by time window
+    filtered_df <- df %>%
+      filter(time >= start_time & time <= end_time)
+
+    return(filtered_df)
+
+  }, error = function(e) {
+    message("Error filtering by time window: ", e$message)
+    return(NULL)
+  })
+}
+
+#-------------------------------------------------------------------------------
 # Function: calculate_time_bins
 #-------------------------------------------------------------------------------
 #' @description Calculates time bins for the abacus plot.
@@ -417,6 +453,8 @@ config <- list(
   dec = ".", # Decimal separator
   exclude_site = NULL, # (OPTIONAL) Filter for tagging site
   filter_species = NULL, # (OPTIONAL) Filter for species
+  start_time = NULL, # In local time zone e.g., "2018-01-01 00:00:00"
+  end_time = NULL, # In local time zone e.g., "2020-12-31 23:59:59"
   color_palette = c( # (OPTIONAL) Color palette to use,
     "#332288", "#88CCEE", "#44AA99", "#117733", "#999933", "#DDCC77",
     "#CC6677", "#882255", "#AA4499", "#661100", "#6699CC", "#AA4466", "#4477AA"),
@@ -445,6 +483,12 @@ data <- load_and_prepare_data(
 )
 if (is.null(data)) {
   stop("Failed to load and prepare data.")
+}
+
+# Filter by Time Window
+data <- filter_by_time_window(data, config)
+if (is.null(data)) {
+  stop("Failed to filter by time window.")
 }
 
 # Calculate Time Bins
