@@ -31,7 +31,7 @@ pacman::p_load(here, tidyverse, viridis)
 #' @return A data frame containing the prepared data, or NULL if an error occurs.
 load_and_prepare_data <- function(config, exclude_site = NULL, filter_species = NULL) {
   tryCatch({
-    # Load data
+    # Load data'
     det_cleaned <- readRDS(file.path(config$data_directory, "det_cleaned.rds"))
     ind <- readRDS(file.path(config$data_directory, "ind.rds"))
     vloc <- readRDS(file.path(config$data_directory, "vloc.rds"))
@@ -163,50 +163,75 @@ group_agencies_by_country <- function(df) {
 #' @param config List containing configuration parameters (see Configuration Section).
 #' @return The data frame with added 'tagging_date_color' (color) and 'tagging_date_symbol' (shape) columns.
 map_agency_colors_and_country_shapes <- function(df, color_palette = NULL, shapes = NULL) {
-  # Get unique agencies and countries
-  agencies <- df %>% pull(agency) %>% unique()
-  countries <- df %>% pull(country) %>% unique()
+  tryCatch({
+    # Get unique agencies and countries
+    agencies <- df %>% pull(agency) %>% unique()
+    countries <- df %>% pull(country) %>% unique()
 
-  # Generate colors if not provided
-  if (is.null(color_palette)) {
-    color_palette <- viridis(n = length(agencies), option = "viridis")
-  } else
-    # Assign black to STB if present
-    if ("STB (BAH)" %in% agencies) {
-      stb_index <- which(agencies == "STB (BAH)")
-      color_palette[stb_index] <- "#000000"
+    # Ensure color palette and shapes are sufficient
+    if (length(color_palette) < length(agencies)) {
+      stop("Color palette in config is too short for the number of agencies.")
+    }
+    if (length(shapes) < length(countries)) {
+      stop("Shapes vector in config is too short for the number of countries.")
     }
 
-  # Generate shapes if not provided
-  if (is.null(shapes)) {
-    shapes <- 15:(14 + length(countries))
-  } else
-    if ("Bahamas" %in% countries) {
-      bahamas_index <- which(countries == "Bahamas")
-
-      # If shape 16 is already used, find its index
-      existing_16_index <- which(shapes == 16)
-
-      if (length(existing_16_index) > 0 && existing_16_index != bahamas_index) {
-        # Assign the next available shape to the country that had 16
-        available_shapes <- setdiff(15:25, shapes)
-        shapes[existing_16_index] <- if (length(available_shapes) > 0) min(available_shapes) else 26
+    # Generate colors if not provided
+    if (is.null(color_palette)) {
+      color_palette <- viridis(n = length(agencies), option = "viridis")
+    } else
+      # Assign black to STB if present
+      if ("STB (BAH)" %in% agencies) {
+        stb_index <- which(agencies == "STB (BAH)")
+        color_palette[stb_index] <- "#000000"
       }
 
-      # Assign shape 16 to Bahamas
-      shapes[bahamas_index] <- 16
-    }
+    # Generate shapes if not provided
+    if (is.null(shapes)) {
+      shapes <- 15:(14 + length(countries))
+    } else
+      if ("Bahamas" %in% countries) {
+        bahamas_index <- which(countries == "Bahamas")
 
-  # Create mappings
-  color_mapping <- tibble(agency = agencies, color = color_palette)
-  shape_mapping <- tibble(country = countries, shape = shapes)
+        # If shape 16 is already used, find its index
+        existing_16_index <- which(shapes == 16)
 
-  # Merge with dataframe
-  df %>%
-    left_join(color_mapping, by = "agency") %>%
-    rename(tagging_date_color = color) %>%
-    left_join(shape_mapping, by = "country") %>%
-    rename(tagging_date_symbol = shape)
+        if (length(existing_16_index) > 0 &&
+            existing_16_index != bahamas_index) {
+          # Assign the next available shape to the country that had 16
+          available_shapes <- setdiff(15:25, shapes)
+          shapes[existing_16_index] <- if (length(available_shapes) > 0)
+            min(available_shapes)
+          else
+            26
+        }
+
+        # Assign shape 16 to Bahamas
+        shapes[bahamas_index] <- 16
+      }
+
+    # Create mappings
+    color_mapping <- tibble(
+      agency = agencies,
+      color = color_palette[1:length(agencies)]
+      )
+
+    shape_mapping <- tibble(
+      country = countries,
+      shape = shapes[1:length(countries)]
+      )
+
+    # Merge with dataframe
+    df %>%
+      left_join(color_mapping, by = "agency") %>%
+      rename(tagging_date_color = color) %>%
+      left_join(shape_mapping, by = "country") %>%
+      rename(tagging_date_symbol = shape)
+  }, error = function(e) {
+    message("Error in map_agency_colors_and_country_shapes: ",
+            e$message)
+    return(NULL)
+  })
 }
 
 #-------------------------------------------------------------------------------
@@ -387,10 +412,10 @@ config <- list(
   output_directory = here::here("output"), # Directory to save plots and intermediate files
   dat.TZ = "US/Eastern", # Time zone of data
   timeint = "day", # Time interval unit
-  time = 4, # Time resolution in days
+  time = 4, # Time resolution of data points (in days)
   sep = ",", # Separator for CSV files
   dec = ".", # Decimal separator
-  exclude_site = NULL, # (OPTIONAL) Filter for taggingg site
+  exclude_site = NULL, # (OPTIONAL) Filter for tagging site
   filter_species = NULL, # (OPTIONAL) Filter for species
   color_palette = c( # (OPTIONAL) Color palette to use,
     "#332288", "#88CCEE", "#44AA99", "#117733", "#999933", "#DDCC77",
