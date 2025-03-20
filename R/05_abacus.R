@@ -205,11 +205,17 @@ map_agency_colors_and_country_shapes <- function(df, color_palette = NULL, shape
     countries <- df %>% pull(country) %>% unique()
 
     # Ensure color palette and shapes are sufficient
-    if (length(color_palette) < length(agencies)) {
-      stop("Color palette in config is too short for the number of agencies.")
+    if (length(config$color_palette) < length(agencies)) {
+      stop(paste0(
+        "Color palette in config is too short for the number of agencies. ",
+        "Please specify at least ", length(agencies), " colors."
+      ))
     }
-    if (length(shapes) < length(countries)) {
-      stop("Shapes vector in config is too short for the number of countries.")
+    if (length(config$shapes) < length(countries)) {
+      stop(paste0(
+        "Shapes vector in config is too short for the number of countries. ",
+        "Please specify at least ", length(countries), " shapes."
+      ))
     }
 
     # Generate colors if not provided
