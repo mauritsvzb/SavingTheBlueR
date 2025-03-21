@@ -19,6 +19,14 @@ rm(list = ls())
 if (!require("pacman")) install.packages("pacman")
 pacman::p_load(here, tidyverse)
 
+# Global Configuration
+config <- list(
+  input_file = "det_tot.rds",
+  output_file = "det_cleaned.rds",
+  time_window_hours = 1,
+  data_directory = here::here("data")
+)
+
 # Function Definitions
 
 #-------------------------------------------------------------------------------
@@ -138,14 +146,6 @@ calculate_removal_stats <- function(original_count, cleaned_count) {
 #-------------------------------------------------------------------------------
 # Main Script Execution
 #-------------------------------------------------------------------------------
-# Global Configuration
-config <- list(
-  input_file = "det_tot.rds",
-  output_file = "det_cleaned.rds",
-  time_window_hours = 1,
-  data_directory = here::here("data")
-)
-
 # Load Data with error handling
 tryCatch({
   det <- readRDS(file.path(config$data_directory, config$input_file))

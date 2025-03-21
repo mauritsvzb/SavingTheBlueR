@@ -24,6 +24,22 @@ rm(list = ls())
 if (!require("pacman")) install.packages("pacman")
 pacman::p_load(here, tidyverse, googledrive, readxl, janitor)
 
+# Global Configuration
+config <- list(
+  data_timezone = "US/Eastern",
+  data_directory = here::here("data"),
+  excluded_locations = c(
+    "SOM1", "SOM2", "BBC1", "MB2", "MB3", "MB4", "MB5",
+    "BWC", "GCC", "Deep Drop 2", "Salvador",
+    "Deep Drop 1", "Bightbackreef", "On Buoy"
+  ),
+  otn_short_folder_url = "https://drive.google.com/drive/folders/1kShVtR3it9WUlVg9L4HzFcNA9R2_LYrN",
+  otn_short_file_pattern = "otn-instrument-deployment-short-form_GUTTRIDGE_2024_SEPT 24_1.xlsx",
+  catch_folder_url = "https://drive.google.com/drive/folders/1LzoZdCqBDhpYQEBc6gb-M2zBdFgKnQop",
+  catch_file_pattern = "SharkCapture.xlsx",
+  detection_folder_path = "https://drive.google.com/drive/folders/1oE72VHV4L_Gwm5zk48eEtOSBhMvzu99q"
+)
+
 # Function Definitions
 
 #-------------------------------------------------------------------------------
@@ -290,22 +306,6 @@ process_detection_files <- function(folder_path) {
 #-------------------------------------------------------------------------------
 # Main Script Execution
 #-------------------------------------------------------------------------------
-# Global Configuration
-config <- list(
-  data_timezone = "US/Eastern",
-  data_directory = here::here("data"),
-  excluded_locations = c(
-    "SOM1", "SOM2", "BBC1", "MB2", "MB3", "MB4", "MB5",
-    "BWC", "GCC", "Deep Drop 2", "Salvador",
-    "Deep Drop 1", "Bightbackreef", "On Buoy"
-  ),
-  otn_short_folder_url = "https://drive.google.com/drive/folders/1kShVtR3it9WUlVg9L4HzFcNA9R2_LYrN",
-  otn_short_file_pattern = "otn-instrument-deployment-short-form_GUTTRIDGE_2024_SEPT 24_1.xlsx",
-  catch_folder_url = "https://drive.google.com/drive/folders/1LzoZdCqBDhpYQEBc6gb-M2zBdFgKnQop",
-  catch_file_pattern = "SharkCapture.xlsx",
-  detection_folder_path = "https://drive.google.com/drive/folders/1oE72VHV4L_Gwm5zk48eEtOSBhMvzu99q"
-)
-
 # Authenticate with Google Drive
 tryCatch({
   drive_auth()

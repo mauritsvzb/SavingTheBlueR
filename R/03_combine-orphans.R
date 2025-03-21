@@ -27,6 +27,38 @@ rm(list = ls())
 if (!require("pacman")) install.packages("pacman")
 pacman::p_load(here, tidyverse, googledrive)
 
+# Global Configuration
+config <- list(
+  data_timezone = "US/Eastern",
+  data_directory = here::here("data"),
+  data_files = list(
+    rec_attr = "vloc.rds",
+    andr_det = "det_compiled.rds"
+  ),
+  # Define point of contact mapping
+  poc_mapping = c(
+    "Olivia Dixon (liv@beneaththewaves.org)" = "BTW (BAH)",
+    "Joy Young (joy.young@myfwc.com)" = "FWC-TEQ (FL-Atl)",
+    "Jeffery Merrell (jhmerrel@ncsu.edu)" = "NCSU (NC)",
+    "Lucas Griffin (lucaspgriffin@gmail.com)" = "BTT (FL-Keys)",
+    "Sue Lowerre-Barbieri" = "UF (FL-GOM)",
+    "Michael Dance" = "LSU (LA)",
+    "Kate Choate (kate.choate@noaa.gov)" = "NOAA (VA)",
+    "Alejandro Acosta (alejandro.acosta@myfwc.com), Danielle Morley (danielle.morley@myfwc.com)" = "FWC (FL-Keys)",
+    "Shawn Harper (shawn.harper@ncaquriums.com), Nancy PhamHo (nancy.phamho@sezarc.com)" = "NC Aq. (NC)",
+    "Wilmelie Cruz-Marrero (wilmelie.cruz@noaa.gov)" = "NOAA (VA)",
+    "Brendan Runde (brendan.runde@tnc.org)" = "TNC (VA)",
+    "Brian Gervelis (brian@inspireenvironmental.com), Jeff Kneebone (jkneebone@neaq.org)" = "INSPIRE Env. (MA)",
+    "Edward Kim (ekim@neaq.org), Jeff Kneebone (jkneebone@neaq.org)" = "New England Aq. (MA)",
+    "Keith Dunton (kdunton@monmouth.edu)" = "Monmouth Uni (NJ)"
+  ),
+  google_drive = list(
+    otn_folder = "https://drive.google.com/drive/folders/1yoSVIIgJvZOigLv90xnIvqtSP_O_bweT",
+    private_folder = "https://drive.google.com/drive/folders/19P4_s0gTFSw9mp1u6-1rPaisE5SJNGZR",
+    file_pattern = "\\.csv$"
+  )
+)
+
 # Function Definitions
 
 #-------------------------------------------------------------------------------
@@ -280,38 +312,6 @@ update_receiver_attributes <- function(rec_attr, orph) {
 #-------------------------------------------------------------------------------
 # Main Script Execution
 #-------------------------------------------------------------------------------
-# Global Configuration
-config <- list(
-  data_timezone = "US/Eastern",
-  data_directory = here::here("data"),
-  data_files = list(
-    rec_attr = "vloc.rds",
-    andr_det = "det_compiled.rds"
-  ),
-  # Define point of contact mapping
-  poc_mapping = c(
-    "Olivia Dixon (liv@beneaththewaves.org)" = "BTW (BAH)",
-    "Joy Young (joy.young@myfwc.com)" = "FWC-TEQ (FL-Atl)",
-    "Jeffery Merrell (jhmerrel@ncsu.edu)" = "NCSU (NC)",
-    "Lucas Griffin (lucaspgriffin@gmail.com)" = "BTT (FL-Keys)",
-    "Sue Lowerre-Barbieri" = "UF (FL-GOM)",
-    "Michael Dance" = "LSU (LA)",
-    "Kate Choate (kate.choate@noaa.gov)" = "NOAA (VA)",
-    "Alejandro Acosta (alejandro.acosta@myfwc.com), Danielle Morley (danielle.morley@myfwc.com)" = "FWC (FL-Keys)",
-    "Shawn Harper (shawn.harper@ncaquriums.com), Nancy PhamHo (nancy.phamho@sezarc.com)" = "NC Aq. (NC)",
-    "Wilmelie Cruz-Marrero (wilmelie.cruz@noaa.gov)" = "NOAA (VA)",
-    "Brendan Runde (brendan.runde@tnc.org)" = "TNC (VA)",
-    "Brian Gervelis (brian@inspireenvironmental.com), Jeff Kneebone (jkneebone@neaq.org)" = "INSPIRE Env. (MA)",
-    "Edward Kim (ekim@neaq.org), Jeff Kneebone (jkneebone@neaq.org)" = "New England Aq. (MA)",
-    "Keith Dunton (kdunton@monmouth.edu)" = "Monmouth Uni (NJ)"
-  ),
-  google_drive = list(
-    otn_folder = "https://drive.google.com/drive/folders/1yoSVIIgJvZOigLv90xnIvqtSP_O_bweT",
-    private_folder = "https://drive.google.com/drive/folders/19P4_s0gTFSw9mp1u6-1rPaisE5SJNGZR",
-    file_pattern = "\\.csv$"
-  )
-)
-
 # Load Data
 loaded_data <- purrr::map(config$data_files, ~readRDS(file.path(config$data_directory, .x)))
 rec_attr <- loaded_data$rec_attr

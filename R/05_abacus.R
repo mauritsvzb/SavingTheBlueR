@@ -19,6 +19,39 @@ rm(list = ls())
 if (!require("pacman")) install.packages("pacman")
 pacman::p_load(here, tidyverse, viridis)
 
+# Global Configuration
+config <- list(
+  data_directory = here::here("data"), # Main project data directory
+  output_directory = here::here("output"), # Directory to save plots and intermediate files
+  dat.TZ = "US/Eastern", # Time zone of data
+  timeint = "day", # Time interval unit
+  time = 4, # Time resolution of data points (in days)
+  sep = ",", # Separator for CSV files
+  dec = ".", # Decimal separator
+  exclude_site = NULL, # (OPTIONAL) Filter for tagging site
+  filter_species = NULL, # (OPTIONAL) Filter for species
+  start_time = NULL, # In local time zone e.g., "2018-01-01 00:00:00"
+  end_time = NULL, # In local time zone e.g., "2020-12-31 23:59:59"
+  color_palette = c( # (OPTIONAL) Color palette to use,
+    "#332288", "#88CCEE", "#44AA99", "#117733", "#999933", "#DDCC77",
+    "#CC6677", "#882255", "#AA4499", "#661100", "#6699CC", "#AA4466", "#4477AA"),
+  shapes = c( # (OPTIONAL) Shape mapping to use,
+    16, 17, 15, 18, 8, 7, 6),
+  output_filename = "abacus.tiff", # Name of the output TIFF file
+  image_width = 340, # Width of the output image in mm
+  image_height = 300, # Height of the output image in mm
+  plot_resolution = 300, # Resolution of the output image in DPI
+  tagging_date_color = "red", # Color for tagging date points
+  tagging_date_symbol = "|", # Shape for tagging date points
+  default_point_size = 0.8, # Default size for detection points
+  species_label_line = 5.5, # Distance of species labels from the axis
+  legend_inset = c(0.01, 0.01), # Inset for the legend position
+  legend_text_cex = 0.7, # Legend text size
+  legend_box = "y", # Show legend box
+  vertical_axis_label_cex = 0.7, # Vertical axis labels size
+  horizontal_axis_label_cex = 0.7 # Horizontal axis labels size
+)
+
 # Function Definitions
 
 #-------------------------------------------------------------------------------
@@ -448,39 +481,6 @@ create_abacus_plot <- function(df, temp, taglist, config) {
 #-------------------------------------------------------------------------------
 # Main Script Execution
 #-------------------------------------------------------------------------------
-# Global Configuration
-config <- list(
-  data_directory = here::here("data"), # Main project data directory
-  output_directory = here::here("output"), # Directory to save plots and intermediate files
-  dat.TZ = "US/Eastern", # Time zone of data
-  timeint = "day", # Time interval unit
-  time = 4, # Time resolution of data points (in days)
-  sep = ",", # Separator for CSV files
-  dec = ".", # Decimal separator
-  exclude_site = NULL, # (OPTIONAL) Filter for tagging site
-  filter_species = NULL, # (OPTIONAL) Filter for species
-  start_time = NULL, # In local time zone e.g., "2018-01-01 00:00:00"
-  end_time = NULL, # In local time zone e.g., "2020-12-31 23:59:59"
-  color_palette = c( # (OPTIONAL) Color palette to use,
-    "#332288", "#88CCEE", "#44AA99", "#117733", "#999933", "#DDCC77",
-    "#CC6677", "#882255", "#AA4499", "#661100", "#6699CC", "#AA4466", "#4477AA"),
-  shapes = c( # (OPTIONAL) Shape mapping to use,
-                    16, 17, 15, 18, 8, 7, 6),
-  output_filename = "abacus.tiff", # Name of the output TIFF file
-  image_width = 340, # Width of the output image in mm
-  image_height = 300, # Height of the output image in mm
-  plot_resolution = 300, # Resolution of the output image in DPI
-  tagging_date_color = "red", # Color for tagging date points
-  tagging_date_symbol = "|", # Shape for tagging date points
-  default_point_size = 0.8, # Default size for detection points
-  species_label_line = 5.5, # Distance of species labels from the axis
-  legend_inset = c(0.01, 0.01), # Inset for the legend position
-  legend_text_cex = 0.7, # Legend text size
-  legend_box = "y", # Show legend box
-  vertical_axis_label_cex = 0.7, # Vertical axis labels size
-  horizontal_axis_label_cex = 0.7 # Horizontal axis labels size
-)
-
 # Load and Prepare Data
 data <- load_and_prepare_data(
   config,

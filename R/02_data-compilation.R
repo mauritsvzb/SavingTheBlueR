@@ -21,6 +21,12 @@ rm(list = ls())
 if (!require("pacman")) install.packages("pacman")
 pacman::p_load(here, tidyverse)
 
+# Global Configuration
+config <- list(
+  data_timezone = "US/Eastern",
+  data_directory = here::here("data")
+)
+
 # Function Definitions
 
 #-------------------------------------------------------------------------------
@@ -177,12 +183,6 @@ compile_data <- function(data_directory, timezone, filter_24h = FALSE) {
 #-------------------------------------------------------------------------------
 # Main Script Execution
 #-------------------------------------------------------------------------------
-# Global Configuration
-config <- list(
-  data_timezone = "US/Eastern",
-  data_directory = here::here("data")
-)
-
 tryCatch({
   # Run the compile function
   compiled_data <- compile_data(config$data_directory, config$data_timezone, filter_24h = TRUE)
