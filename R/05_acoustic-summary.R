@@ -29,20 +29,24 @@ pacman::p_load(here, tidyverse, lubridate)
 #' @description Creates time intervals for analysis.
 #' @param det_data Detection data frame.
 #' @param start_point Optional start date (POSIXct).
+#' @param end_point Optional end date (POSIXct).
 #' @param time_interval Use monthly intervals (TRUE/FALSE).
-#' @return List containing time sequence and interval information
-create_time_intervals <- function(det_data, start_point = NULL, time_interval = FALSE) {
+#' @return List containing time sequence and interval information.
+create_time_intervals <- function(det_data, start_point = NULL, end_point = NULL, time_interval = FALSE) {
+  # Determine start and end dates based on user input or data range.
+  first_date <- start_point %||% min(det_data$time)
+  last_date <- end_point %||% max(det_data$time)
+
   if (time_interval) {
-    first_date <- start_point %||% min(det_data$time)
     month_seq <- seq(
       from = floor_date(first_date, "month"),
-      to = ceiling_date(max(det_data$time), "month"),
+      to = ceiling_date(last_date, "month"),
       by = "month"
     )
     list(timeseq = month_seq, interval_type = "monthly")
   } else {
     list(
-      timeseq = c(min(det_data$time), max(det_data$time) + minutes(1)),
+      timeseq = c(first_date, last_date + minutes(1)),
       interval_type = "full_period"
     )
   }
@@ -153,6 +157,7 @@ save_analysis_outputs <- function(object, save_path, file_name, interval_id = NU
 #' @param output_directory Output directory path.
 #' @param timezone Timezone for date handling.
 #' @param start.p Optional start date (POSIXct).
+#' @param end.p Optional end date (POSIXct).
 #' @param timeint Use time intervals (TRUE/FALSE).
 #' @param agency Group by agency (TRUE/FALSE).
 datasummary <- function(
@@ -160,38 +165,38 @@ datasummary <- function(
     output_directory = here::here("output"),
     timezone = "US/Eastern",
     start.p = NULL,
+    end.p = NULL,
     timeint = FALSE,
     agency = FALSE
 ) {
-  # Create output directory if needed
+  # Create output directory if needed.
   if (!dir.exists(output_directory)) dir.create(output_directory, recursive = TRUE)
 
-  # Load data
-  det_cleaned <- readRDS(file.path(data_directory, "DET_cleaned.rds"))
+  # Load data.
+  det_cleaned <- readRDS(file.path(data_directory, "det_cleaned.rds"))
+  ind_data <- readRDS(file.path(data_directory, "ind.rds"))
 
-  ind_data <- readRDS(file.path(data_directory, "IND.rds"))
-
-  # Create time intervals
-  time_data <- create_time_intervals(det_cleaned, start.p, timeint)
+  # Create time intervals with both start and end dates.
+  time_data <- create_time_intervals(det_cleaned, start.p, end.p, timeint)
   timeseq <- time_data$timeseq
 
-  # Save time interval metadata
+  # Save time interval metadata.
   save_analysis_outputs(
     tibble(index = seq_along(timeseq), period = timeseq),
     output_directory,
     "dattime"
   )
 
-  # Process each time interval
+  # Process each time interval.
   walk(seq_len(length(timeseq) - 1), function(k) {
     interval_data <- det_cleaned %>%
       filter(time >= timeseq[k], time < timeseq[k + 1])
 
-    # Generate and save individual summaries
+    # Generate and save individual summaries.
     individual_summary <- generate_individual_summary(interval_data, ind_data, timezone)
     save_analysis_outputs(individual_summary, output_directory, "summary", k)
 
-    # Generate and save detection matrices
+    # Generate and save detection matrices.
     detection_matrix <- generate_detection_matrix(interval_data, agency)
     save_analysis_outputs(detection_matrix, output_directory, "matrix_ind_location", k)
   })
