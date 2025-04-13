@@ -17,28 +17,28 @@
 # - Assumes data is in a specific format (see documentation for details).
 #-------------------------------------------------------------------------------
 
-# Fresh Start
-rm(list = ls())
+# Fresh Start # Un-comment below code if you want to run in this script
+# rm(list = ls())
 
-# Load Libraries
-if (!require("pacman")) install.packages("pacman")
-pacman::p_load(here, tidyverse, googledrive, readxl, janitor)
+# Load Libraries # Un-comment below code if you want to run in this script
+# if (!require("pacman")) install.packages("pacman")
+# pacman::p_load(here, tidyverse, googledrive, readxl, janitor)
 
-# Global Configuration
-config <- list(
-  data_timezone = "US/Eastern",
-  data_directory = here::here("data"),
-  excluded_locations = c(
-    "SOM1", "SOM2", "BBC1", "MB2", "MB3", "MB4", "MB5",
-    "BWC", "GCC", "Deep Drop 2", "Salvador",
-    "Deep Drop 1", "Bightbackreef", "On Buoy"
-  ),
-  otn_short_folder_url = "https://drive.google.com/drive/folders/1kShVtR3it9WUlVg9L4HzFcNA9R2_LYrN",
-  otn_short_file_pattern = "otn-instrument-deployment-short-form_GUTTRIDGE_2024_SEPT 24_1.xlsx",
-  catch_folder_url = "https://drive.google.com/drive/folders/1LzoZdCqBDhpYQEBc6gb-M2zBdFgKnQop",
-  catch_file_pattern = "SharkCapture.xlsx",
-  detection_folder_path = "https://drive.google.com/drive/folders/1oE72VHV4L_Gwm5zk48eEtOSBhMvzu99q"
-)
+# Global Configuration # Un-comment below code if you want to run in this script
+# config <- list(
+#   data_timezone = "US/Eastern",
+#   data_directory = here::here("data"),
+#   excluded_locations = c(
+#     "SOM1", "SOM2", "BBC1", "MB2", "MB3", "MB4", "MB5",
+#     "BWC", "GCC", "Deep Drop 2", "Salvador",
+#     "Deep Drop 1", "Bightbackreef", "On Buoy"
+#   ),
+#   otn_short_folder_url = "https://drive.google.com/drive/folders/1kShVtR3it9WUlVg9L4HzFcNA9R2_LYrN",
+#   otn_short_file_pattern = "otn-instrument-deployment-short-form_GUTTRIDGE_2024_SEPT 24_1.xlsx",
+#   catch_folder_url = "https://drive.google.com/drive/folders/1LzoZdCqBDhpYQEBc6gb-M2zBdFgKnQop",
+#   catch_file_pattern = "SharkCapture.xlsx",
+#   detection_folder_path = "https://drive.google.com/drive/folders/1oE72VHV4L_Gwm5zk48eEtOSBhMvzu99q"
+# )
 
 # Function Definitions
 
@@ -61,6 +61,7 @@ authenticate_drive <- function() {
 # Function: import_data_from_drive
 #-------------------------------------------------------------------------------
 #' @description Imports data from a Google Drive file.
+#' @param config_list List of configuration parameters.
 #' @param folder_url URL of the Google Drive folder containing the file.
 #' @param file_pattern Pattern to match the filename in the Google Drive folder.
 #' @param sheet (Optional) Sheet number or name to read from the Excel file (default: 1).
@@ -74,7 +75,7 @@ authenticate_drive <- function() {
 #' #   sheet = 2,
 #' #   col_types = c("INS_SERIAL_NO" = "text")
 #' # )
-import_data_from_gdrive <- function(folder_url, file_pattern, sheet = 1, col_types = NULL) {
+import_data_from_gdrive <- function(config_list, folder_url, file_pattern, sheet = 1, col_types = NULL) {
   tryCatch({
 
     # Get the folder and file
@@ -131,14 +132,15 @@ import_data_from_gdrive <- function(folder_url, file_pattern, sheet = 1, col_typ
 # Function: extract_receiver_metadata
 #-------------------------------------------------------------------------------
 #' @description Extracts receiver location metadata from the OTN short form data.
+#' @param config_list List of configuration parameters.
 #' @param otn_data The OTN short form data frame.
 #' @param excluded_locations (Optional) A vector of location names to exclude (Default: NULL).
 #' @return A data frame containing receiver location metadata.
-extract_receiver_metadata <- function(otn_data, excluded_locations = NULL) {
+extract_receiver_metadata <- function(config_list, otn_data, excluded_locations = NULL) {
   rec_attr <- otn_data %>%
     filter(
       !(station_no == "SHARKHOLE" & deploy_lat == "24.42684") & #remove retired location
-        ins_model_no == "VR2W" & #remove non-receivers
+        ins_model_no == "VR2W" & #keep receivers only
         (is.null(excluded_locations) | !station_no %in% excluded_locations) #exclude locations, if specified
     ) %>%
     select( #select columns we want to keep
@@ -175,11 +177,12 @@ extract_receiver_metadata <- function(otn_data, excluded_locations = NULL) {
 # Function: extract_receiver_deployment_data
 #-------------------------------------------------------------------------------
 #' @description Extracts receiver deployment data from the OTN short form data.
+#' @param config_list List of configuration parameters.
 #' @param otn_data The OTN short form data frame.
 #' @param excluded_locations (Optional) A vector of location names to exclude (Default: NULL).
 #' @param timezone The timezone to use for converting date/time values.
 #' @return A data frame containing receiver deployment data.
-extract_receiver_deployment_data <- function(otn_data, excluded_locations = NULL, timezone) {
+extract_receiver_deployment_data <- function(config_list, otn_data, excluded_locations = NULL, timezone) {
   rec_mov <- otn_data %>%
     filter(
       !(station_no == "SHARKHOLE" & deploy_lat == "24.42684") & #retired station
@@ -223,10 +226,11 @@ extract_receiver_deployment_data <- function(otn_data, excluded_locations = NULL
 # Function: extract_tag_metadata
 #-------------------------------------------------------------------------------
 #' @description Extracts tag metadata from the catch data.
+#' @param config_list List of configuration parameters.
 #' @param catch_data The catch data frame.
 #' @param timezone The timezone to use for converting date/time values.
 #' @return A data frame containing tag metadata.
-extract_tag_metadata <- function(catch_data, timezone) {
+extract_tag_metadata <- function(config_list, catch_data, timezone) {
   ind_attr <- catch_data %>%
     filter(
       !(is.na(acoustic_tag_id)) & #filter out non-acoustic ids
@@ -263,9 +267,10 @@ extract_tag_metadata <- function(catch_data, timezone) {
 # Function: process_detection_files
 #-------------------------------------------------------------------------------
 #' @description Processes acoustic detection files from a Google Drive folder.
+#' @param config_list List of configuration parameters.
 #' @param folder_path The path to the Google Drive folder.
 #' @return A data frame containing the processed detection data.
-process_detection_files <- function(folder_path) {
+process_detection_files <- function(config_list, folder_path) {
   # List all CSV files in the specified folder
   csv_files <- drive_ls(path = folder_path, pattern = "\\.csv$", recursive = TRUE)
 
@@ -319,46 +324,92 @@ process_detection_files <- function(folder_path) {
 }
 
 #-------------------------------------------------------------------------------
-# Main Script Execution
+# Function: process_all_data
 #-------------------------------------------------------------------------------
-# Authenticate with Google Drive
-authenticate_drive()
+#' @description Processes all raw data, extracts metadata, and saves processed data.
+#' This function orchestrates the entire data processing workflow, including:
+#'  - Authenticating with Google Drive
+#'  - Importing data from Google Drive (OTN short form and catch data)
+#'  - Cleaning column names
+#'  - Extracting receiver and tag metadata
+#'  - Processing detection files
+#'  - Saving the processed data as RDS files.
+#' @param config_list List of configuration parameters.
+#' @return None. The function saves processed data to RDS files as a side effect.
+#' @examples
+#' # Example usage:
+#' # config <- list(
+#' #   data_timezone = "US/Eastern",
+#' #   data_directory = here::here("data"),
+#' #   excluded_locations = c("SOM1", "SOM2"),
+#' #   otn_short_folder_url = "...",
+#' #   otn_short_file_pattern = "otn-instrument-deployment-short-form...",
+#' #   catch_folder_url = "...",
+#' #   catch_file_pattern = "SharkCapture.xlsx",
+#' #   detection_folder_path = "..."
+#' # )
+#' # process_all_data(config)
+process_all_data <- function(config_list){
+  # Authenticate with Google Drive
+  authenticate_drive()
 
-tryCatch({
-  # Import Data
-  otn_short <- import_data_from_gdrive(
-    folder_url = config$otn_short_folder_url,
-    file_pattern = config$otn_short_file_pattern,
-    sheet = 2
-  )
+  tryCatch({
+    # Import Data
+    otn_short <- import_data_from_gdrive(
+      config_list,
+      folder_url = config_list$otn_short_folder_url,
+      file_pattern = config_list$otn_short_file_pattern,
+      sheet = 2
+    )
 
-  catch <- import_data_from_gdrive(
-    folder_url = config$catch_folder_url,
-    file_pattern = config$catch_file_pattern,
-    sheet = 1
-  )
+    catch <- import_data_from_gdrive(
+      config_list,
+      folder_url = config_list$catch_folder_url,
+      file_pattern = config_list$catch_file_pattern,
+      sheet = 1
+    )
 
-  # 2. Clean Column Names
-  otn_short <- janitor::clean_names(otn_short)
+    # 2. Clean Column Names
+    otn_short <- janitor::clean_names(otn_short)
 
-  # 3. Extract Metadata
-  rec_attr <- extract_receiver_metadata(otn_short, excluded_locations = config$excluded_locations)
-  rec_mov  <- extract_receiver_deployment_data(otn_short, excluded_locations = config$excluded_locations, config$data_timezone)
-  ind_attr <- extract_tag_metadata(catch, config$data_timezone)
+    # 3. Extract Metadata
+    rec_attr <- extract_receiver_metadata(
+      config_list,
+      otn_data = otn_short,
+      excluded_locations = config_list$excluded_locations
+    )
 
-  # 4. Process Detection Files
-  raw_det <- process_detection_files(config$detection_folder_path)
+    rec_mov  <- extract_receiver_deployment_data(
+      config_list,
+      otn_data = otn_short,
+      excluded_locations = config_list$excluded_locations,
+      timezone = config_list$data_timezone
+    )
 
-  # 5. Save Processed Data
-  data_files <- list(
-    vloc = rec_attr,
-    vmov = rec_mov,
-    ind = ind_attr,
-    det = raw_det
-  )
+    ind_attr <- extract_tag_metadata(
+      config_list,
+      catch_data = catch,
+      timezone = config_list$data_timezone
+    )
 
-  purrr::iwalk(data_files, ~saveRDS(.x, file.path(config$data_directory, paste0(.y, ".rds"))))
+    # 4. Process Detection Files
+    raw_det <- process_detection_files(
+      config_list,
+      folder_path = config_list$detection_folder_path
+    )
 
-}, error = function(e) {
-  message("Error during execution: ", e$message)
-})
+    # 5. Save Processed Data
+    data_files <- list(
+      vloc = rec_attr,
+      vmov = rec_mov,
+      ind = ind_attr,
+      det = raw_det
+    )
+
+    purrr::iwalk(data_files, ~saveRDS(.x, file.path(config_list$data_directory, paste0(.y, ".rds"))))
+    print("All data process complete")
+
+  }, error = function(e) {
+    message("Error during execution: ", e$message)
+  })
+}
