@@ -43,6 +43,21 @@ config <- list(
 # Function Definitions
 
 #-------------------------------------------------------------------------------
+# Function: authenticate_drive
+#-------------------------------------------------------------------------------
+#' @description Authenticates the user with Google Drive.
+#' This function uses the `googledrive` package to authenticate the user,
+#' enabling access to Google Drive files and folders.
+#' @return None. The function performs authentication as a side effect.
+authenticate_drive <- function() {
+  tryCatch({
+    drive_auth()
+  }, error = function(e) {
+    stop("Failed to authenticate with Google Drive: ", e$message)
+  })
+}
+
+#-------------------------------------------------------------------------------
 # Function: import_data_from_drive
 #-------------------------------------------------------------------------------
 #' @description Imports data from a Google Drive file.
@@ -307,11 +322,7 @@ process_detection_files <- function(folder_path) {
 # Main Script Execution
 #-------------------------------------------------------------------------------
 # Authenticate with Google Drive
-tryCatch({
-  drive_auth()
-}, error = function(e) {
-  stop("Failed to authenticate with Google Drive: ", e$message)
-})
+authenticate_drive()
 
 tryCatch({
   # Import Data
