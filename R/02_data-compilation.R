@@ -14,18 +14,18 @@
 # - lubridate
 #-------------------------------------------------------------------------------
 
-# Fresh Start
-rm(list = ls())
+# Fresh Start # Un-comment below code if you want to run in this script
+# rm(list = ls())
 
-# Load Libraries
-if (!require("pacman")) install.packages("pacman")
-pacman::p_load(here, tidyverse)
+# Load Libraries # Un-comment below code if you want to run in this script
+# if (!require("pacman")) install.packages("pacman")
+# pacman::p_load(here, tidyverse)
 
-# Global Configuration
-config <- list(
-  data_timezone = "US/Eastern",
-  data_directory = here::here("data")
-)
+# Global Configuration # Un-comment below code if you want to run in this script
+# config <- list(
+#   data_timezone = "US/Eastern",
+#   data_directory = here::here("data")
+# )
 
 # Function Definitions
 
@@ -34,10 +34,11 @@ config <- list(
 #-------------------------------------------------------------------------------
 #' @description Imports and preprocesses detection data, receiver movement data,
 #' and individual data.
+#' @param config_list List of configuration parameters.
 #' @param data_directory Directory containing the data files.
 #' @param timezone The timezone for the data.
 #' @return A list containing the preprocessed dataframes.
-import_and_preprocess_data <- function(data_directory, timezone) {
+import_and_preprocess_data <- function(config_list, data_directory, timezone) {
   tryCatch({
     # Import detection data
     det <- readRDS(file.path(data_directory, "det.rds")) %>%
@@ -67,13 +68,14 @@ import_and_preprocess_data <- function(data_directory, timezone) {
 #-------------------------------------------------------------------------------
 #' @description Filter to remove unknown tags and detections that may have been
 #' biased by tagging event.
+#' @param config_list List of configuration parameters.
 #' @param det Detection dataframe.
 #' @param ind Individual dataframe.
 #' @param filter_24h Boolean to indicate if data collected during first 24 hours post
 #' tagging should be removed, but also removes detections that occurred prior to
 #' tag deployment and no detection thereafter.
 #' @return Filtered detection dataframe.
-filter_detections_by_tag_and_tag_deployment <- function(det, ind, filter_24h = FALSE) {
+filter_detections_by_tag_and_tag_deployment <- function(config_list, det, ind, filter_24h = FALSE) {
 
   # Check and convert data types if necessary
   if (is.character(det$elasmo) && is.numeric(ind$acoustic_tag_id)) {
@@ -126,10 +128,11 @@ filter_detections_by_tag_and_tag_deployment <- function(det, ind, filter_24h = F
 #-------------------------------------------------------------------------------
 #' @description Assigns locations to detections based on receiver deployment
 #' periods.
+#' @param config_list List of configuration parameters.
 #' @param det Detection dataframe.
 #' @param vmov Receiver movement dataframe.
 #' @return Detection dataframe with assigned locations.
-assign_locations_to_detections <- function(det, vmov) {
+assign_locations_to_detections <- function(config_list, det, vmov) {
   suppressWarnings( #suppressWarnings() suppresses false alarm warnings originating from
     #the many duplicates that are created by the left_join(), which are
     #dealt with using the filter()
@@ -148,24 +151,25 @@ assign_locations_to_detections <- function(det, vmov) {
 # Function: compile_data
 #-------------------------------------------------------------------------------
 #' @description Main function to compile and filter acoustic detection data.
+#' @param config_list List of configuration parameters.
 #' @param data_directory Directory containing the data files.
 #' @param timezone Timezone for the data.
 #' @param filter_24h Boolean to indicate if first 24 hours should be filtered out.
 #' @return Compiled and filtered detection dataframe.
-compile_data <- function(data_directory, timezone, filter_24h = FALSE) {
+compile_data <- function(config_list, data_directory, timezone, filter_24h = FALSE) {
   tryCatch({
     # Import and preprocess data
-    data <- import_and_preprocess_data(data_directory, timezone)
+    data <- import_and_preprocess_data(config_list, data_directory, timezone)
 
     if (is.null(data)) {
       stop("Data import and preprocessing failed.")
     }
 
     # Filter detections by tag deployment
-    filtered_det <- filter_detections_by_tag_and_tag_deployment(data$det, data$ind, filter_24h)
+    filtered_det <- filter_detections_by_tag_and_tag_deployment(config_list, data$det, data$ind, filter_24h)
 
     # Assign locations to detections
-    compiled_det <- assign_locations_to_detections(filtered_det, data$vmov)
+    compiled_det <- assign_locations_to_detections(config_list, filtered_det, data$vmov)
 
     # Remove detections without assigned locations
     compiled_det <- compiled_det %>% filter(!is.na(location))
@@ -181,19 +185,28 @@ compile_data <- function(data_directory, timezone, filter_24h = FALSE) {
 }
 
 #-------------------------------------------------------------------------------
-# Main Script Execution
+# Function: process_all_data
 #-------------------------------------------------------------------------------
-tryCatch({
-  # Run the compile function
-  compiled_data <- compile_data(config$data_directory, config$data_timezone, filter_24h = TRUE)
-}, error = function(e) {
-  stop("Data compilation failed: ", e$message)
-})
-
-# Print summary of compiled data
-if (!is.null(compiled_data)) {
-  cat("Compilation complete. Summary of compiled data:\n")
-  print(summary(compiled_data))
-} else {
-  cat("Compilation failed.\n")
+#' @description Main processing function for acoustic telemetry pipeline. It imports,
+#' preprocesses, filters, assigns locations to detections, and saves compiled results.
+#' @param config_list List containing configuration parameters.
+#' @return None. The function saves processed data to RDS files as a side effect.
+process_all_data <- function(config_list){
+  tryCatch({
+    # Run the compile function
+    compiled_data <- compile_data(config_list, config_list$data_directory, config_list$data_timezone, filter_24h = TRUE)
+  }, error = function(e) {
+    stop("Data compilation failed: ", e$message)
+  })
 }
+
+# # run all codes within main function
+# compiled_data <- process_all_data(config_list = config_new)
+#
+# # Print summary of compiled data
+# if (!is.null(compiled_data)) {
+#   cat("Compilation complete. Summary of compiled data:\n")
+#   print(summary(compiled_data))
+# } else {
+#   cat("Compilation failed.\n")
+# }
