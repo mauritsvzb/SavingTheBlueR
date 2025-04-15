@@ -12,31 +12,31 @@
 #-------------------------------------------------------------------------------
 
 # Fresh Start
-rm(list = ls())
+# rm(list = ls())
 
 # Load Libraries
-if (!require("pacman")) install.packages("pacman")
-pacman::p_load(tidyverse, tidylog)
+# if (!require("pacman")) install.packages("pacman")
+# pacman::p_load(tidyverse, tidylog)
 
 # Global Configuration
-config <- list(
-  dirs = list(
-    root = here::here(), #NOT SURE THHIS IS REALLY NEEDED!?
-    data = here::here("data"),
-    output = here::here("output/silkies_2025")
-  ),
-  files = list(
-    det = "det_cleaned.rds", # Acoustic detections
-    vmov = "vmov.rds", # Receiver movements
-    ind = "ind.rds", # Individual attributes
-    vloc = "vloc.rds" # Receiver locations
-  ),
-  params = list(
-    time_zone = "US/Eastern",
-    plot_width = 15,
-    plot_height = 8
-  )
-)
+# config <- list(
+#   dirs = list(
+#     root = here::here(), #NOT SURE THHIS IS REALLY NEEDED!?
+#     data = here::here("data"),
+#     output = here::here("output/silkies_2025")
+#   ),
+#   files = list(
+#     det = "det_cleaned.rds", # Acoustic detections
+#     vmov = "vmov.rds", # Receiver movements
+#     ind = "ind.rds", # Individual attributes
+#     vloc = "vloc.rds" # Receiver locations
+#   ),
+#   params = list(
+#     time_zone = "US/Eastern",
+#     plot_width = 15,
+#     plot_height = 8
+#   )
+# )
 
 # Function Definitions
 
@@ -44,13 +44,14 @@ config <- list(
 # Function: load_and_validate_data
 #-------------------------------------------------------------------------------
 #' @description Load and validate core datasets
-#' @param config Configuration list
+#' @param config_list List of configuration parameters
+#' @param data_folder Name of folder that contains the input data
 #' @return List of loaded datasets
 #' @throws Error if required files are missing or invalid
-load_and_validate_data <- function(config) {
+load_and_validate_data <- function(config_list, data_folder) {
   required_files <- c("det", "vmov", "ind", "vloc")
   for (file in required_files) {
-    file_path <- file.path(config$dirs$data, config$files[[file]])
+    file_path <- file.path(data_folder, config_list$files[[file]])
     if (!file.exists(file_path)) {
       stop(paste("Required file not found:", file_path))
     }
@@ -58,10 +59,10 @@ load_and_validate_data <- function(config) {
 
   tryCatch({
     list(
-      det = readRDS(file.path(config$dirs$data, config$files$det)),
-      vmov = readRDS(file.path(config$dirs$data, config$files$vmov)),
-      ind = readRDS(file.path(config$dirs$data, config$files$ind)),
-      loc = readRDS(file.path(config$dirs$data, config$files$vloc))
+      det = readRDS(file.path(data_folder, config_list$files$det)),
+      vmov = readRDS(file.path(data_folder, config_list$files$vmov)),
+      ind = readRDS(file.path(data_folder, config_list$files$ind)),
+      loc = readRDS(file.path(data_folder, config_list$files$vloc))
     )
   }, error = function(e) {
     stop("Data loading failed: ", e$message)
@@ -72,22 +73,25 @@ load_and_validate_data <- function(config) {
 # Function: clean_receiver_data
 #-------------------------------------------------------------------------------
 #' @description Clean and preprocess receiver deployment data
+#' @param config_list List of configuration parameters
 #' @param vmov Raw vmov data
-#' @param config Configuration list
+#' @param timezone Timezone for the data
 #' @return Cleaned vmov data
-clean_receiver_data <- function(vmov, config) {
+clean_receiver_data <- function(config_list, vmov, timezone) {
   vmov %>%
     arrange(location, date_in) %>%
     filter( # Remove rows include failed receiver deployments
-      !(date_in == as.POSIXct("2023-05-30 16:18:00", tz = config$params$time_zone) & location == "bwcdrop"),
-      !(date_in == as.POSIXct("2022-06-29 19:52:00", tz = config$params$time_zone) & location == "cc1"),
-      !(date_in == as.POSIXct("2023-05-31 17:21:00", tz = config$params$time_zone) & location == "drop6"),
-      !(date_in == as.POSIXct("2023-06-08 19:55:00", tz = config$params$time_zone) & location == "mb1"),
+      !(date_in == as.POSIXct("2023-05-30 16:18:00", tz = timezone) & location == "bwcdrop"),
+      !(date_in == as.POSIXct("2022-06-29 19:52:00", tz = timezone) & location == "cc1"),
+      !(date_in == as.POSIXct("2023-05-31 17:21:00", tz = timezone) & location == "drop6"),
+      !(date_in == as.POSIXct("2023-06-08 19:55:00", tz = timezone) & location == "mb1"),
     ) %>%
     mutate(
       date_out = case_when( # Change retrieval dates for ccdrop and drop 5 so that it reflects time date when the data error occurred?
-        (date_in == as.POSIXct("2023-06-03 17:15:00", tz = config$params$time_zone) & location == "drop5") ~ as.POSIXct("2023-07-10 12:42:00", tz = config$params$time_zone),
-        (date_in == as.POSIXct("2023-05-30 15:32:00", tz = config$params$time_zone) & location == "ccdrop") ~ as.POSIXct("2023-07-23 12:42:00", tz = config$params$time_zone),
+        (date_in == as.POSIXct("2023-06-03 17:15:00", tz = timezone) &
+           location == "drop5") ~ as.POSIXct("2023-07-10 12:42:00", tz = timezone),
+        (date_in == as.POSIXct("2023-05-30 15:32:00", tz = timezone) &
+           location == "ccdrop") ~ as.POSIXct("2023-07-23 12:42:00", tz = timezone),
         TRUE ~ date_out
       )
     )
@@ -97,11 +101,13 @@ clean_receiver_data <- function(vmov, config) {
 # Function: create_weekly_deployment_data
 #-------------------------------------------------------------------------------
 #' @description Create weekly deployment activity data
+#' @param config_list List of configuration parameters
 #' @param vmov Cleaned vmov data
+#' @param timezone Timezone for the data
 #' @return Tibble with weekly deployment data
-create_weekly_deployment_data <- function(vmov) {
+create_weekly_deployment_data <- function(config_list, vmov, timezone) {
   vmov %>%
-    mutate(across(c(date_in, date_out), ~as.Date(., tz = config$params$time_zone))) %>%
+    mutate(across(c(date_in, date_out), ~as.Date(., tz = timezone))) %>%
     rowwise() %>%
     mutate(weeks = list(seq(date_in, date_out, by = "week"))) %>%
     unnest(weeks) %>%
@@ -112,21 +118,24 @@ create_weekly_deployment_data <- function(vmov) {
 # Function: create_weekly_detection_data
 #-------------------------------------------------------------------------------
 #' @description Create weekly detection activity data
+#' @param config_list List of configuration parameters
 #' @param det Detection data
 #' @param vmov Cleaned VMOV data
+#' @param timezone Timezone for the data
 #' @return Tibble with weekly detection data
-create_weekly_detection_data <- function(det, vmov) {
+create_weekly_detection_data <- function(config_list, det, vmov, timezone) {
   det %>%
     filter(agency == "STB (BAH)") %>%
     mutate(
-      date = as.Date(time, tz = config$params$time_zone)
+      date = as.Date(time, tz = timezone)
     ) %>%
     inner_join(
       vmov,
-      by = c("location", "station")
+      by = c("location", "station"),
+      relationship = "many-to-many"
     ) %>%
-    filter(date >= as.Date(date_in, tz = config$params$time_zone) &
-             date <= as.Date(date_out, tz = config$params$time_zone)) %>%
+    filter(date >= as.Date(date_in, tz = timezone) &
+             date <= as.Date(date_out, tz = timezone)) %>%
     group_by(location, station, date_in, date_out) %>%
     summarise(
       start_date = min(date),
@@ -211,26 +220,26 @@ create_comparative_abacus <- function(vmov_data, det_data) {
 #-------------------------------------------------------------------------------
 # Main Function: run_receiver_analysis
 #-------------------------------------------------------------------------------
-run_receiver_analysis <- function(config) {
+run_receiver_analysis <- function(config_list) {
   # Load and validate data
-  data <- load_and_validate_data(config)
+  data <- load_and_validate_data(config_list, data_folder = config_list$dirs$data)
 
   # Clean receiver deployment data
-  vmov_clean <- clean_receiver_data(data$vmov, config)
+  vmov_clean <- clean_receiver_data(config_list, data$vmov, timezone = config_list$params$time_zone)
 
   # Generate analysis datasets
-  weekly_vmov <- create_weekly_deployment_data(vmov_clean)
-  weekly_det <- create_weekly_detection_data(data$det, vmov_clean)
+  weekly_vmov <- create_weekly_deployment_data(config_list, vmov_clean, timezone = config_list$params$time_zone)
+  weekly_det <- create_weekly_detection_data(config_list, data$det, vmov_clean, timezone = config_list$params$time_zone)
 
   # Create comparative plot
   plot <- create_comparative_abacus(weekly_vmov, weekly_det)
 
   # Save plot
   ggsave(
-    file.path(config$dirs$output, "receiver_activity_comparison.png"),
+    file.path(config_list$dirs$output, "receiver_activity_comparison.png"),
     plot = plot,
-    width = config$params$plot_width,
-    height = config$params$plot_height,
+    width = config_list$params$plot_width,
+    height = config_list$params$plot_height,
     dpi = 300
   )
 
@@ -239,12 +248,6 @@ run_receiver_analysis <- function(config) {
     det_data = weekly_det,
     plot = plot
   ))
-}
 
-#-------------------------------------------------------------------------------
-# Main Script Execution
-#-------------------------------------------------------------------------------
-if (sys.nframe() == 0) {
-  results <- run_receiver_analysis(config)
   print("Analysis complete. Plot saved in output directory.")
 }
