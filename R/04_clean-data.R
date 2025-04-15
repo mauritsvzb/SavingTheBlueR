@@ -13,19 +13,19 @@
 #-------------------------------------------------------------------------------
 
 # Fresh Start
-rm(list = ls())
+# rm(list = ls())
 
 # Load Libraries
-if (!require("pacman")) install.packages("pacman")
-pacman::p_load(here, tidyverse)
+# if (!require("pacman")) install.packages("pacman")
+# pacman::p_load(here, tidyverse)
 
 # Global Configuration
-config <- list(
-  input_file = "det_tot.rds",
-  output_file = "det_cleaned.rds",
-  time_window_hours = 1,
-  data_directory = here::here("data")
-)
+# config <- list(
+#   input_file = "det_tot.rds",
+#   output_file = "det_cleaned.rds",
+#   time_window_hours = 1,
+#   data_directory = here::here("data")
+# )
 
 # Function Definitions
 
@@ -144,32 +144,38 @@ calculate_removal_stats <- function(original_count, cleaned_count) {
 }
 
 #-------------------------------------------------------------------------------
-# Main Script Execution
+# Function: process_all_data
 #-------------------------------------------------------------------------------
-# Load Data with error handling
-tryCatch({
-  det <- readRDS(file.path(config$data_directory, config$input_file))
-}, error = function(e) {
-  stop("Failed to load detection data: ", e$message)
-})
+#' @description Process detection data pipeline
+#' @param config_list List of configuration parameters, including file paths and settings
+#' @return Invisibly returns TRUE if processing is successful; NULL otherwise
+#' @throws Error if data loading or processing fails
+process_all_data <- function(config_list) {
+  # Load Data with error handling
+  tryCatch({
+    det <- readRDS(file.path(config_list$data_directory, config_list$input_file))
+  }, error = function(e) {
+    stop("Failed to load detection data: ", e$message)
+  })
 
-# Processing pipeline
-processing_result <- tryCatch({
-  det %>%
-    flag_single_detections(time_window_hours = config$time_window_hours) %>%
-    remove_single_detections()
-}, error = function(e) {
-  message("Processing failed: ", e$message)
-  return(NULL)
-})
+  # Processing pipeline
+  processing_result <- tryCatch({
+    det %>%
+      flag_single_detections(time_window_hours = config_list$time_window_hours) %>%
+      remove_single_detections()
+  }, error = function(e) {
+    message("Processing failed: ", e$message)
+    return(NULL)
+  })
 
-if (!is.null(processing_result)) {
-  # Save results
-  saveRDS(processing_result, file.path(config$data_directory, config$output_file))
+  if (!is.null(processing_result)) {
+    # Save results
+    saveRDS(processing_result, file.path(config_list$data_directory, config_list$output_file))
 
-  # Generate statistics
-  calculate_removal_stats(nrow(det), nrow(processing_result))
-  cat("Detection filtering complete. Cleaned data saved to", config$output_file, "\n")
-} else {
-  message("No output generated due to processing errors")
+    # Generate statistics
+    calculate_removal_stats(nrow(det), nrow(processing_result))
+    cat("Detection filtering complete. Cleaned data saved to", config_list$output_file, "\n")
+  } else {
+    message("No output generated due to processing errors")
+  }
 }
