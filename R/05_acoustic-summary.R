@@ -15,22 +15,23 @@
 #-------------------------------------------------------------------------------
 
 # Fresh Start  # Un-comment below code if you want to run in this script
-rm(list = ls())
+# rm(list = ls())
 
 # Load Libraries  # Un-comment below code if you want to run in this script
-if (!require("pacman")) install.packages("pacman")
-pacman::p_load(here, tidyverse, lubridate)
+# if (!require("pacman")) install.packages("pacman")
+# pacman::p_load(here, tidyverse, lubridate)
 
 # Global Configuration  # Un-comment below code if you want to run in this script
-config_list <- list(
-  data_directory = here::here("data"), # Base directory path.
-  output_directory = here::here("output"), # Output directory path.
-  timezone = "US/Eastern", # Timezone for date handling.
-  start.p = NULL, # Optional start date (POSIXct).
-  end.p = NULL, # Optional end date (POSIXct).
-  timeint = FALSE, # Use time intervals (TRUE/FALSE).
-  agency = FALSE # Group by agency (TRUE/FALSE).
-)
+# config_list <- list(
+#   data_directory = here::here("data"), # Base directory path.
+#   output_directory = here::here("output"), # Output directory path.
+#   timezone = "US/Eastern", # Timezone for date handling.
+#   start.p = NULL, # Optional start date (POSIXct).
+#   end.p = NULL, # Optional end date (POSIXct).
+#   timeint = FALSE, # Use time intervals (TRUE/FALSE).
+#   agency = FALSE # Group by agency (TRUE/FALSE).
+#   min_days = NULL # Minimum number of days a tag should've been detected in the array
+# )
 
 # Function Definitions
 
@@ -69,9 +70,10 @@ create_time_intervals <- function(det_data, start_point = NULL, end_point = NULL
 #' @description Generates summary statistics for individual animals.
 #' @param filtered_data Filtered detection data for specific time interval.
 #' @param ind_data Individual metadata.
-#' @param tz Timezone for the individual metadata.
+#' @param timezone Timezone for the individual metadata.
+#' @param min_days_detected Optional minimum number of days detected to include an animal (default: NULL).
 #' @return Tibble with individual summary statistics.
-generate_individual_summary <- function(filtered_data, ind_data, timezone) {
+generate_individual_summary <- function(filtered_data, ind_data, timezone, min_days_detected = NULL) {
   if (nrow(filtered_data) == 0) {
     return(tibble(
       ID = character(), Species = character(), `Date tagged` = character(),
@@ -97,6 +99,12 @@ generate_individual_summary <- function(filtered_data, ind_data, timezone) {
       difd = as.numeric(difftime(maxtime, mintime, units = "days")),
       difh = as.numeric(difftime(maxtime, mintime, units = "hours"))
     )
+
+  # Apply the filter based on the number of days detected, if specified
+  if (!is.null(min_days_detected)) {
+    summary_data <- summary_data %>%
+      filter(nbrday >= min_days_detected)
+  }
 
   ind_data %>%
     filter(acoustic_tag_id %in% summary_data$elasmo) %>%
@@ -191,7 +199,8 @@ datasummary <- function(config_list) {
       filter(time >= timeseq[k], time < timeseq[k + 1])
 
     # Generate and save individual summaries.
-    individual_summary <- generate_individual_summary(interval_data, ind_data, config_list$timezone)
+    individual_summary <- generate_individual_summary(interval_data, ind_data, config_list$timezone,
+                                                      config_list$min_days)
     save_analysis_outputs(individual_summary, config_list$output_directory, "summary", k)
 
     # Generate and save detection matrices.
