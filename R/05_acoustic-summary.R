@@ -14,12 +14,23 @@
 # - lubridate
 #-------------------------------------------------------------------------------
 
-# Fresh Start
+# Fresh Start  # Un-comment below code if you want to run in this script
 rm(list = ls())
 
-# Load Libraries
+# Load Libraries  # Un-comment below code if you want to run in this script
 if (!require("pacman")) install.packages("pacman")
 pacman::p_load(here, tidyverse, lubridate)
+
+# Global Configuration  # Un-comment below code if you want to run in this script
+config_list <- list(
+  data_directory = here::here("data"), # Base directory path.
+  output_directory = here::here("output"), # Output directory path.
+  timezone = "US/Eastern", # Timezone for date handling.
+  start.p = NULL, # Optional start date (POSIXct).
+  end.p = NULL, # Optional end date (POSIXct).
+  timeint = FALSE, # Use time intervals (TRUE/FALSE).
+  agency = FALSE # Group by agency (TRUE/FALSE).
+)
 
 # Function Definitions
 
@@ -153,37 +164,24 @@ save_analysis_outputs <- function(object, save_path, file_name, interval_id = NU
 # Main Function: datasummary
 #-------------------------------------------------------------------------------
 #' @description Main function to generate detection summaries.
-#' @param data_directory Base directory path.
-#' @param output_directory Output directory path.
-#' @param timezone Timezone for date handling.
-#' @param start.p Optional start date (POSIXct).
-#' @param end.p Optional end date (POSIXct).
-#' @param timeint Use time intervals (TRUE/FALSE).
-#' @param agency Group by agency (TRUE/FALSE).
-datasummary <- function(
-    data_directory = here::here("data"),
-    output_directory = here::here("output"),
-    timezone = "US/Eastern",
-    start.p = NULL,
-    end.p = NULL,
-    timeint = FALSE,
-    agency = FALSE
-) {
+#' @param config_list List of configuration parameters.
+#' @return Table of summary statistics for each acoustic transmitter, along with a detection matrix
+datasummary <- function(config_list) {
   # Create output directory if needed.
-  if (!dir.exists(output_directory)) dir.create(output_directory, recursive = TRUE)
+  if (!dir.exists(config_list$output_directory)) dir.create(config_list$output_directory, recursive = TRUE)
 
   # Load data.
-  det_cleaned <- readRDS(file.path(data_directory, "det_cleaned.rds"))
-  ind_data <- readRDS(file.path(data_directory, "ind.rds"))
+  det_cleaned <- readRDS(file.path(config_list$data_directory, "det_cleaned.rds"))
+  ind_data <- readRDS(file.path(config_list$data_directory, "ind.rds"))
 
   # Create time intervals with both start and end dates.
-  time_data <- create_time_intervals(det_cleaned, start.p, end.p, timeint)
+  time_data <- create_time_intervals(det_cleaned, config_list$start.p, config_list$end.p, config_list$timeint)
   timeseq <- time_data$timeseq
 
   # Save time interval metadata.
   save_analysis_outputs(
     tibble(index = seq_along(timeseq), period = timeseq),
-    output_directory,
+    config_list$output_directory,
     "dattime"
   )
 
@@ -193,17 +191,16 @@ datasummary <- function(
       filter(time >= timeseq[k], time < timeseq[k + 1])
 
     # Generate and save individual summaries.
-    individual_summary <- generate_individual_summary(interval_data, ind_data, timezone)
-    save_analysis_outputs(individual_summary, output_directory, "summary", k)
+    individual_summary <- generate_individual_summary(interval_data, ind_data, config_list$timezone)
+    save_analysis_outputs(individual_summary, config_list$output_directory, "summary", k)
 
     # Generate and save detection matrices.
-    detection_matrix <- generate_detection_matrix(interval_data, agency)
-    save_analysis_outputs(detection_matrix, output_directory, "matrix_ind_location", k)
+    detection_matrix <- generate_detection_matrix(interval_data, config_list$agency)
+    save_analysis_outputs(detection_matrix, config_list$output_directory, "matrix_ind_location", k)
   })
 
-  message("Analysis complete. Outputs saved to: ", output_directory)
+  message("Analysis complete. Outputs saved to: ", config_list$output_directory)
 }
 
 # Execute the function
-datasummary()
-
+# datasummary()
