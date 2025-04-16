@@ -183,7 +183,11 @@ datasummary <- function(config_list) {
   ind_data <- readRDS(file.path(config_list$data_directory, "ind.rds"))
 
   # Create time intervals with both start and end dates.
-  time_data <- create_time_intervals(det_cleaned, config_list$start.p, config_list$end.p, config_list$timeint)
+  time_data <- create_time_intervals(det_data = det_cleaned,
+                                     start_point = config_list$start.p,
+                                     end_point = config_list$end.p,
+                                     time_interval = config_list$timeint
+                                     )
   timeseq <- time_data$timeseq
 
   # Save time interval metadata.
@@ -199,13 +203,26 @@ datasummary <- function(config_list) {
       filter(time >= timeseq[k], time < timeseq[k + 1])
 
     # Generate and save individual summaries.
-    individual_summary <- generate_individual_summary(interval_data, ind_data, config_list$timezone,
-                                                      config_list$min_days)
-    save_analysis_outputs(individual_summary, config_list$output_directory, "summary", k)
+    individual_summary <- generate_individual_summary(filtered_data = interval_data,
+                                                      ind_data = ind_data,
+                                                      timezone = config_list$timezone,
+                                                      min_days_detected = config_list$min_days
+                                                      )
+
+    save_analysis_outputs(object = individual_summary,
+                          save_path = config_list$output_directory,
+                          file_name = "summary", k
+                          )
 
     # Generate and save detection matrices.
-    detection_matrix <- generate_detection_matrix(interval_data, config_list$agency)
-    save_analysis_outputs(detection_matrix, config_list$output_directory, "matrix_ind_location", k)
+    detection_matrix <- generate_detection_matrix(filtered_data = interval_data,
+                                                  group_by_agency = config_list$agency
+                                                  )
+
+    save_analysis_outputs(object = detection_matrix,
+                          save_path = config_list$output_directory,
+                          file_name = "matrix_ind_location", k
+                          )
   })
 
   message("Analysis complete. Outputs saved to: ", config_list$output_directory)
