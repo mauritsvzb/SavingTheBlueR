@@ -194,19 +194,11 @@ compile_data <- function(config_list, data_directory, timezone, filter_24h = FAL
 process_all_data <- function(config_list){
   tryCatch({
     # Run the compile function
-    compiled_data <- compile_data(config_list, config_list$data_directory, config_list$data_timezone, filter_24h = TRUE)
+    compile_data(config_list,
+                 data_directory = config_list$data_directory,
+                 timezone = config_list$data_timezone,
+                 filter_24h = TRUE)
   }, error = function(e) {
     stop("Data compilation failed: ", e$message)
   })
 }
-
-# # run all codes within main function
-# compiled_data <- process_all_data(config_list = config_new)
-#
-# # Print summary of compiled data
-# if (!is.null(compiled_data)) {
-#   cat("Compilation complete. Summary of compiled data:\n")
-#   print(summary(compiled_data))
-# } else {
-#   cat("Compilation failed.\n")
-# }
