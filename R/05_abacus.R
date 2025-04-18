@@ -13,44 +13,44 @@
 #-------------------------------------------------------------------------------
 
 # Fresh Start
-rm(list = ls())
+# rm(list = ls())
 
 # Load Libraries
-if (!require("pacman")) install.packages("pacman")
-pacman::p_load(here, tidyverse, viridis)
+# if (!require("pacman")) install.packages("pacman")
+# pacman::p_load(here, tidyverse, viridis)
 
 # Global Configuration
-config <- list(
-  data_directory = here::here("data"), # Main project data directory
-  output_directory = here::here("output"), # Directory to save plots and intermediate files
-  dat.TZ = "US/Eastern", # Time zone of data
-  timeint = "day", # Time interval unit
-  time = 4, # Time resolution of data points (in days)
-  sep = ",", # Separator for CSV files
-  dec = ".", # Decimal separator
-  exclude_site = NULL, # (OPTIONAL) Filter for tagging site
-  filter_species = NULL, # (OPTIONAL) Filter for species
-  start_time = NULL, # In local time zone e.g., "2018-01-01 00:00:00"
-  end_time = NULL, # In local time zone e.g., "2020-12-31 23:59:59"
-  color_palette = c( # (OPTIONAL) Color palette to use,
-    "#332288", "#88CCEE", "#44AA99", "#117733", "#999933", "#DDCC77",
-    "#CC6677", "#882255", "#AA4499", "#661100", "#6699CC", "#AA4466", "#4477AA"),
-  shapes = c( # (OPTIONAL) Shape mapping to use,
-    16, 17, 15, 18, 8, 7, 6),
-  output_filename = "abacus.tiff", # Name of the output TIFF file
-  image_width = 340, # Width of the output image in mm
-  image_height = 300, # Height of the output image in mm
-  plot_resolution = 300, # Resolution of the output image in DPI
-  tagging_date_color = "red", # Color for tagging date points
-  tagging_date_symbol = "|", # Shape for tagging date points
-  default_point_size = 0.8, # Default size for detection points
-  species_label_line = 5.5, # Distance of species labels from the axis
-  legend_inset = c(0.01, 0.01), # Inset for the legend position
-  legend_text_cex = 0.7, # Legend text size
-  legend_box = "y", # Show legend box
-  vertical_axis_label_cex = 0.7, # Vertical axis labels size
-  horizontal_axis_label_cex = 0.7 # Horizontal axis labels size
-)
+# config_list <- list(
+#   data_directory = here::here("data"), # Main project data directory
+#   output_directory = here::here("output"), # Directory to save plots and intermediate files
+#   dat.TZ = "US/Eastern", # Time zone of data
+#   timeint = "day", # Time interval unit
+#   time = 4, # Time resolution of data points (in days)
+#   sep = ",", # Separator for CSV files
+#   dec = ".", # Decimal separator
+#   exclude_site = NULL, # (OPTIONAL) Filter for tagging site
+#   filter_species = NULL, # (OPTIONAL) Filter for species
+#   start_time = NULL, # In local time zone e.g., "2018-01-01 00:00:00"
+#   end_time = NULL, # In local time zone e.g., "2020-12-31 23:59:59"
+#   color_palette = c( # (OPTIONAL) Color palette to use,
+#     "#332288", "#88CCEE", "#44AA99", "#117733", "#999933", "#DDCC77",
+#     "#CC6677", "#882255", "#AA4499", "#661100", "#6699CC", "#AA4466", "#4477AA"),
+#   shapes = c( # (OPTIONAL) Shape mapping to use,
+#     16, 17, 15, 18, 8, 7, 6),
+#   output_filename = "abacus.tiff", # Name of the output TIFF file
+#   image_width = 340, # Width of the output image in mm
+#   image_height = 300, # Height of the output image in mm
+#   plot_resolution = 300, # Resolution of the output image in DPI
+#   tagging_date_color = "red", # Color for tagging date points
+#   tagging_date_symbol = "|", # Shape for tagging date points
+#   default_point_size = 0.8, # Default size for detection points
+#   species_label_line = 5.5, # Distance of species labels from the axis
+#   legend_inset = c(0.01, 0.01), # Inset for the legend position
+#   legend_text_cex = 0.7, # Legend text size
+#   legend_box = "y", # Show legend box
+#   vertical_axis_label_cex = 0.7, # Vertical axis labels size
+#   horizontal_axis_label_cex = 0.7 # Horizontal axis labels size
+# )
 
 # Function Definitions
 
@@ -58,16 +58,16 @@ config <- list(
 # Function: load_and_prepare_data
 #-------------------------------------------------------------------------------
 #' @description Loads and prepares acoustic telemetry data for plotting.
-#' @param config List containing configuration parameters (see Configuration Section).
+#' @param config_list List containing configuration parameters (see Configuration Section).
 #' @param exclude_site (Optional) Site(s) to exclude e.g., "Jupiter Florida" (Default: NULL)
 #' @param filter_species (Optional) Species to filter for e.g., "Carcharhinus perezii" (Default: NULL)
 #' @return A data frame containing the prepared data, or NULL if an error occurs.
-load_and_prepare_data <- function(config, exclude_site = NULL, filter_species = NULL) {
+load_and_prepare_data <- function(config_list, exclude_site = NULL, filter_species = NULL) {
   tryCatch({
-    # Load data'
-    det_cleaned <- readRDS(file.path(config$data_directory, "det_cleaned.rds"))
-    ind <- readRDS(file.path(config$data_directory, "ind.rds"))
-    vloc <- readRDS(file.path(config$data_directory, "vloc.rds"))
+    # Load data
+    det_cleaned <- readRDS(file.path(config_list$data_directory, "det_cleaned.rds"))
+    ind <- readRDS(file.path(config_list$data_directory, "ind.rds"))
+    vloc <- readRDS(file.path(config_list$data_directory, "vloc.rds"))
 
     # Data cleaning and transformation
     df <- det_cleaned %>%
@@ -78,7 +78,7 @@ load_and_prepare_data <- function(config, exclude_site = NULL, filter_species = 
     ind <- ind %>%
       mutate(elasmo = as.numeric(elasmo))
 
-    # Exclude specified site(s) if provided in config
+    # Exclude specified site(s) if provided in config_list
     if (!is.null(exclude_site)) {
       ind <- ind %>%
         filter(!site %in% exclude_site)
@@ -107,7 +107,7 @@ load_and_prepare_data <- function(config, exclude_site = NULL, filter_species = 
         longitude
       )
 
-    # Filter by species if specified in config
+    # Filter by species if specified in config_list
     if (!is.null(filter_species)) {
       df2 <- filter(df2, species == filter_species)
     }
@@ -124,20 +124,20 @@ load_and_prepare_data <- function(config, exclude_site = NULL, filter_species = 
 # Function: filter_by_time_window
 #-------------------------------------------------------------------------------
 #' @description Filters the data by a specified time window.
+#' @param config_list List containing configuration parameters, including start_time and end_time.
 #' @param df Data frame to filter.
-#' @param config List containing configuration parameters, including start_time and end_time.
 #' @return Filtered data frame, or NULL if an error occurs.
-filter_by_time_window <- function(df, config) {
+filter_by_time_window <- function(config_list, df, timezone) {
   tryCatch({
-    # Check if start_time and end_time are in config
-    if (is.null(config$start_time) || is.null(config$end_time)) {
+    # Check if start_time and end_time are in config_list
+    if (is.null(config_list$start_time) || is.null(config_list$end_time)) {
       message("start_time and/or end_time not specified in config; returning full dataset.")
       return(df)  # Return original data if time window not specified
     }
 
     # Convert start and end times to POSIXct with correct time zone
-    start_time <- as.POSIXct(config$start_time, tz = config$dat.TZ)
-    end_time <- as.POSIXct(config$end_time, tz = config$dat.TZ)
+    start_time <- as.POSIXct(config_list$start_time, tz = timezone)
+    end_time <- as.POSIXct(config_list$end_time, tz = timezone)
 
     # Check if start_time and end_time are valid POSIXct objects
     if (is.na(start_time) || is.na(end_time)) {
@@ -160,29 +160,29 @@ filter_by_time_window <- function(df, config) {
 # Function: calculate_time_bins
 #-------------------------------------------------------------------------------
 #' @description Calculates time bins for the abacus plot.
+#' @param config_list List containing configuration parameters (see Configuration Section).
 #' @param df Data frame containing the detection data.
-#' @param config List containing configuration parameters (see Configuration Section).
 #' @return A list containing the time sequence and the data frame with added bin information.
-calculate_time_bins <- function(df, config) {
+calculate_time_bins <- function(config_list, df, timezone) {
   tryCatch({
     # Calculate time range
     min.time <- min(df$time)
-    min.time <- format(min.time, "%Y-%m-%d")
-    min.time <- as.POSIXct(min.time, "%Y-%m-%d", tz = config$dat.TZ)
+    min.time <- format(min.time, "%Y-%m-%d", tz = timezone)
+    min.time <- as.POSIXct(min.time, "%Y-%m-%d", tz = timezone)
 
     max.time <- max(df$time)
-    max.time <- format(max.time, "%Y-%m-%d", tz = config$dat.TZ)
-    max.time <- as.POSIXct(max.time, tz = config$dat.TZ)
+    max.time <- format(max.time, "%Y-%m-%d", tz = timezone)
+    max.time <- as.POSIXct(max.time, "%Y-%m-%d", tz = timezone)
 
     # Create time sequence
-    time.int <- difftime(max.time, min.time - (3600 * 24 * 30), units = config$timeint)
-    lo <- ceiling(as.numeric(time.int)) / config$time
+    time.int <- difftime(max.time, min.time - (3600 * 24 * 30), units = config_list$timeint)
+    lo <- ceiling(as.numeric(time.int)) / config_list$time
     timeseq <- seq(
       from = min.time - (3600 * 24 * 30 * 7),
       length.out = (lo + (0.4 * lo)),
-      by = paste(config$time, config$timeint, sep = " ")
+      by = paste(config_list$time, config_list$timeint, sep = " ")
     )
-    timeseq <- as.POSIXct(format(timeseq, "%Y-%m-%d"), tz = config$dat.TZ) # Convert to date-only POSIXct
+    timeseq <- as.POSIXct(format(timeseq, "%Y-%m-%d"), tz = timezone) # Convert to date-only POSIXct
 
     # Assign time bins to detections
     df <- df %>%
@@ -228,25 +228,25 @@ group_agencies_by_country <- function(df) {
 # Function: map_agency_colors_and_country_shapes
 #-------------------------------------------------------------------------------
 #' @description Maps agency affiliations to colors and country to shapes for plotting.
+#' @param config_list List containing configuration parameters (see Configuration Section).
 #' @param df Data frame containing detection data.
-#' @param config List containing configuration parameters (see Configuration Section).
 #' @return The data frame with added 'tagging_date_color' (color) and 'tagging_date_symbol' (shape) columns.
-map_agency_colors_and_country_shapes <- function(df, color_palette = NULL, shapes = NULL) {
+map_agency_colors_and_country_shapes <- function(config_list, df, color_palette = NULL, shapes = NULL) {
   tryCatch({
     # Get unique agencies and countries
     agencies <- df %>% pull(agency) %>% unique()
     countries <- df %>% pull(country) %>% unique()
 
     # Ensure color palette and shapes are sufficient
-    if (length(config$color_palette) < length(agencies)) {
+    if (length(config_list$color_palette) < length(agencies)) {
       stop(paste0(
-        "Color palette in config is too short for the number of agencies. ",
+        "Color palette in config_list is too short for the number of agencies. ",
         "Please specify at least ", length(agencies), " colors."
       ))
     }
-    if (length(config$shapes) < length(countries)) {
+    if (length(config_list$shapes) < length(countries)) {
       stop(paste0(
-        "Shapes vector in config is too short for the number of countries. ",
+        "Shapes vector in config_list is too short for the number of countries. ",
         "Please specify at least ", length(countries), " shapes."
       ))
     }
@@ -313,12 +313,13 @@ map_agency_colors_and_country_shapes <- function(df, color_palette = NULL, shape
 # Function: process_tagging_data
 #-------------------------------------------------------------------------------
 #' @description Processes tagging data to add tagging dates to the abacus plot.
+#' @param config_list List containing configuration parameters (see Configuration Section).
 #' @param df Data frame containing detection data with color and shape mappings.
 #' @param ind Data frame containing tagging information.
 #' @param timeint Vector of time intervals used for binning detection data.
-#' @param config List containing configuration parameters (see Configuration Section).
+#' @param timezone The timezone for the data.
 #' @return A data frame containing tagging data with date and aesthetics for plotting.
-process_tagging_data <- function(df, ind, timeint, config) {
+process_tagging_data <- function(config_list, df, ind, timeint, timezone) {
   tryCatch({
     # Create indice column
     taglist <- unique(df$elasmo)
@@ -335,7 +336,7 @@ process_tagging_data <- function(df, ind, timeint, config) {
       mutate(bin = as.factor(bin))
 
     # Prepare tagging data
-    ind <- readRDS(file.path(config$data_directory, "ind.rds"))
+    ind <- readRDS(file.path(config_list$data_directory, "ind.rds"))
     tag.up <- ind %>%
       rename(elasmo = acoustic_tag_id) %>%
       filter(elasmo %in% df$elasmo) %>%
@@ -352,8 +353,8 @@ process_tagging_data <- function(df, ind, timeint, config) {
     temp[, "stl"] <- tag.up$stl
     temp[, "tagging_datetime"] <- tag.up$tagging_datetime
     temp[, "species"] <- tag.up$species
-    temp[, "tagging_date_color"] <- config$tagging_date_color
-    temp[, "tagging_date_symbol"] <- config$tagging_date_symbol
+    temp[, "tagging_date_color"] <- config_list$tagging_date_color
+    temp[, "tagging_date_symbol"] <- config_list$tagging_date_symbol
 
     # Transform tagging date to the same scale as the abacus plot i.e. to appropriate time interval bins
     date.t <- sapply(temp$tagging_datetime, function(tagging_date) {
@@ -365,7 +366,7 @@ process_tagging_data <- function(df, ind, timeint, config) {
     })
 
     # replace original tagging date
-    temp$date <- as.POSIXct(date.t,"%Y-%m-%d %H:%M:%S", tz = config$dat.TZ)
+    temp$date <- as.POSIXct(date.t,"%Y-%m-%d %H:%M:%S", tz = timezone)
 
     # tag id order inherited from tag.up
     temp <- temp %>%
@@ -383,19 +384,20 @@ process_tagging_data <- function(df, ind, timeint, config) {
 # Function: create_abacus_plot
 #-------------------------------------------------------------------------------
 #' @description Generates the abacus plot.
+#' @param config_list List containing configuration parameters (see Configuration Section).
 #' @param df Data frame containing detection data with aesthetics.
 #' @param temp Data frame containing tagging data with aesthetics.
 #' @param taglist Vector of unique tag IDs.
-#' @param config List containing configuration parameters (see Configuration Section).
-create_abacus_plot <- function(df, temp, taglist, config) {
+#' @param timezone The timezone for the data.
+abacus_plot <- function(config_list, df, temp, taglist, timezone) {
   tryCatch({
     # Open TIFF file for output
     tiff(
-      filename = file.path(config$output_directory, config$output_filename),
-      width = config$image_width,
-      height = config$image_height,
+      filename = file.path(config_list$output_directory, config_list$output_filename),
+      width = config_list$image_width,
+      height = config_list$image_height,
       units = "mm",
-      res = config$plot_resolution
+      res = config_list$plot_resolution
     )
 
     # Set plot margins and clipping
@@ -405,7 +407,7 @@ create_abacus_plot <- function(df, temp, taglist, config) {
     plot(
       df$date, df$indice,
       xlim = c((min(df$date) - months(5)), max(df$date)),
-      cex = rep(config$default_point_size, length(df$indice)),
+      cex = rep(config_list$default_point_size, length(df$indice)),
       col = as.character(df$tagging_date_color),
       pch = df$tagging_date_symbol,
       yaxt = "n", xaxt = "n", ann = F
@@ -427,15 +429,15 @@ create_abacus_plot <- function(df, temp, taglist, config) {
     #   arrange(elasmo)
 
     axis(side = 2, at = seq(1, length(taglist), 1),
-         labels = taglist, cex.axis = config$vertical_axis_label_cex, las = 2) # sets the primary y-axis label, tag IDs
-    axis(side = 2, line = 2.0, at = 1:length(taglist), labels = temp$sex, las = 2, cex.axis = config$vertical_axis_label_cex, tick = F) # sets secondary y-axis label: Sex
-    axis(side = 2, line = 3.0, at = 1:length(taglist), labels = temp$stl, las = 2, cex.axis = config$vertical_axis_label_cex, tick = F) # sets tertiary y-axis label: STL
+         labels = taglist, cex.axis = config_list$vertical_axis_label_cex, las = 2) # sets the primary y-axis label, tag IDs
+    axis(side = 2, line = 2.0, at = 1:length(taglist), labels = temp$sex, las = 2, cex.axis = config_list$vertical_axis_label_cex, tick = F) # sets secondary y-axis label: Sex
+    axis(side = 2, line = 3.0, at = 1:length(taglist), labels = temp$stl, las = 2, cex.axis = config_list$vertical_axis_label_cex, tick = F) # sets tertiary y-axis label: STL
 
     # Set horizontal axes labels: Months and Years
     axis.POSIXct(1, at = seq((min(df$date) - months(6)), max(df$date), by = "month") - 1, format = "%b",
-                 las = 2, cex.axis = config$horizontal_axis_label_cex) # sets primary x axis label, months
-    axis.POSIXct(1, line = 1.2, at = seq(as.POSIXct("2011-01-01 00:00:00", tz = config$dat.TZ), max(df$date), by = "year"), format = "%Y",
-                 las = 0, cex.axis = config$horizontal_axis_label_cex, tick = F) # sets secondary x axis label: year
+                 las = 2, cex.axis = config_list$horizontal_axis_label_cex) # sets primary x axis label, months
+    axis.POSIXct(1, line = 1.2, at = seq(as.POSIXct("2011-01-01 00:00:00", tz = timezone), max(df$date), by = "year"), format = "%Y",
+                 las = 0, cex.axis = config_list$horizontal_axis_label_cex, tick = F) # sets secondary x axis label: year
 
     # Add Tagging Dates
     points(temp$date, temp$indice, col = temp$tagging_date_color, pch = temp$tagging_date_symbol)
@@ -455,19 +457,19 @@ create_abacus_plot <- function(df, temp, taglist, config) {
     # Add the labels
     mtext(side = 2, text = unique_species,
           at = species_positions,
-          line = config$species_label_line, las = 2, cex = 0.8)
+          line = config_list$species_label_line, las = 2, cex = 0.8)
 
     # add legend to the plot
     legend(
       "topleft",
-      inset = config$legend_inset,
+      inset = config_list$legend_inset,
       legend = tpch$agency,
       pch = tpch$tagging_date_symbol,
       col = as.character(tpch$tagging_date_color),
-      cex = config$legend_text_cex,
+      cex = config_list$legend_text_cex,
       text.width = max(strwidth(tpch$agency, units = "user", cex = 0.8)),
       y.intersp = 0.9, # Adjust this value to control vertical spacing
-      bty = config$legend_box
+      bty = config_list$legend_box
     )
 
     dev.off()
@@ -479,51 +481,144 @@ create_abacus_plot <- function(df, temp, taglist, config) {
 }
 
 #-------------------------------------------------------------------------------
-# Main Script Execution
+# Main Function: generate_abacus_plot
 #-------------------------------------------------------------------------------
-# Load and Prepare Data
-data <- load_and_prepare_data(
-  config,
-  exclude_site = config$exclude_site,
-  filter_species = config$filter_species
-)
-if (is.null(data)) {
-  stop("Failed to load and prepare data.")
+#' @description
+#'   This function orchestrates the generation of an abacus plot from acoustic
+#'   telemetry data. It loads, prepares, filters, and processes the data before
+#'   creating the final plot.
+#' @param config_list
+#'   List containing configuration parameters. This list should include paths
+#'   to data files, time zone information, plot settings, and optional filters.
+#'   See the example configuration for required parameters.
+#' @details
+#'   The function relies on several sub-functions for data loading, filtering,
+#'   processing, and plotting. See the documentation for these functions for
+#'   more details on their specific operations.
+#'
+#'   \itemize{
+#'     \item{\code{load_and_prepare_data()}}{: Loads and prepares acoustic
+#'     telemetry data for plotting.}
+#'     \item{\code{filter_by_time_window()}}{: Filters the data by a specified
+#'     time window.}
+#'     \item{\code{calculate_time_bins()}}{: Calculates time bins for the
+#'     abacus plot.}
+#'     \item{\code{group_agencies_by_country()}}{: Groups agencies into
+#'     countries.}
+#'     \item{\code{map_agency_colors_and_country_shapes()}}{: Maps agency
+#'     affiliations to colors and country to shapes for plotting.}
+#'     \item{\code{process_tagging_data()}}{: Processes tagging data to add
+#'     tagging dates to the abacus plot.}
+#'     \item{\code{create_abacus_plot()}}{: Generates the abacus plot.}
+#'   }
+#'
+#'   The \code{config_list} should contain the following elements:
+#'
+#'   \itemize{
+#'     \item{\code{data_directory}}{: Path to the directory containing data
+#'     files ("det_cleaned.rds", "ind.rds", "vloc.rds").}
+#'     \item{\code{output_directory}}{: Directory where the output plot will be
+#'     saved.}
+#'     \item{\code{dat.TZ}}{: Time zone of the data.}
+#'     \item{\code{timeint}}{: Time interval unit (e.g., "day").}
+#'     \item{\code{time}}{: Time resolution of data points (in days).}
+#'     \item{\code{sep}}{: Separator for CSV files.}
+#'     \item{\code{dec}}{: Decimal separator.}
+#'     \item{\code{exclude_site}}{: (Optional) Site(s) to exclude.}
+#'     \item{\code{filter_species}}{: (Optional) Species to filter for.}
+#'     \item{\code{start_time}}{: (Optional) Start time for filtering data.}
+#'     \item{\code{end_time}}{: (Optional) End time for filtering data.}
+#'     \item{\code{color_palette}}{: (Optional) Color palette to use.}
+#'     \item{\code{shapes}}{: (Optional) Shape mapping to use.}
+#'     \item{\code{output_filename}}{: Name of the output TIFF file.}
+#'     \item{\code{image_width}}{: Width of the output image in mm.}
+#'     \item{\code{image_height}}{: Height of the output image in mm.}
+#'     \item{\code{plot_resolution}}{: Resolution of the output image in DPI.}
+#'     \item{\code{tagging_date_color}}{: Color for tagging date points.}
+#'     \item{\code{tagging_date_symbol}}{: Shape for tagging date points.}
+#'     \item{\code{default_point_size}}{: Default size for detection points.}
+#'     \item{\code{species_label_line}}{: Distance of species labels from the
+#'     axis.}
+#'     \item{\code{legend_inset}}{: Inset for the legend position.}
+#'     \item{\code{legend_text_cex}}{: Legend text size.}
+#'     \item{\code{legend_box}}{: Show legend box.}
+#'     \item{\code{vertical_axis_label_cex}}{: Vertical axis labels size.}
+#'     \item{\code{horizontal_axis_label_cex}}{: Horizontal axis labels size.}
+#'   }
+#'
+#' @param config_list List of configuration parameters.
+#' @return None.  Generates and saves a TIFF image of the abacus plot to the specified output directory.
+generate_abacus_plot = function(config_list){
+  # Load and Prepare Data
+  data <- load_and_prepare_data(
+    config_list,
+    exclude_site = config_list$exclude_site,
+    filter_species = config_list$filter_species
+  )
+  if (is.null(data)) {
+    stop("Failed to load and prepare data.")
+  }
+
+  # Filter by Time Window
+  data <- filter_by_time_window(
+    config_list,
+    df = data,
+    timezone = config_list$dat.TZ
+  )
+  if (is.null(data)) {
+    stop("Failed to filter by time window.")
+  }
+
+  # Calculate Time Bins
+  time_bins_result <- calculate_time_bins(
+    config_list,
+    df = data,
+    timezone = config_list$dat.TZ
+  )
+  if (is.null(time_bins_result)) {
+    stop("Failed to calculate time bins.")
+  }
+  timeseq <- time_bins_result$timeseq
+  df <- time_bins_result$df
+
+  # Group Agencies by Country (and state, if applicable)
+  df <- group_agencies_by_country(df)
+
+  # Map Agency Colors and Country Shapes
+  df <- map_agency_colors_and_country_shapes(
+    config_list,
+    df = df,
+    color_palette = config_list$color_palette,
+    shapes = config_list$shapes
+  )
+  if (is.null(df)) {
+    stop("Failed to map agency colors and country shapes.")
+  }
+  # Get taglist AFTER data preparation and time bin calculation
+  taglist <- unique(df$elasmo)
+
+  # Process Tagging Data
+  processed_data <- process_tagging_data(
+    config_list,
+    df = df,
+    ind = ind,
+    timeint = timeseq,
+    timezone = config_list$dat.TZ
+  )
+  if (is.null(processed_data)) {
+    stop("Failed to process tagging data.")
+  }
+  df <- processed_data$df
+  temp <- processed_data$temp
+
+  # 5. Create Abacus Plot
+  abacus_plot(
+    config_list,
+    df = df,
+    temp = temp,
+    taglist = taglist,
+    timezone = config_list$dat.TZ
+  )
+
+  message("Abacus plot generated successfully.")
 }
-
-# Filter by Time Window
-data <- filter_by_time_window(data, config)
-if (is.null(data)) {
-  stop("Failed to filter by time window.")
-}
-
-# Calculate Time Bins
-time_bins_result <- calculate_time_bins(data, config)
-if (is.null(time_bins_result)) {
-  stop("Failed to calculate time bins.")
-}
-timeseq <- time_bins_result$timeseq
-df <- time_bins_result$df
-
-# Group Agencies by Country (and state, if applicable)
-df <- group_agencies_by_country(df)
-
-# Map Agency Colors and Country Shapes
-df <- map_agency_colors_and_country_shapes(df, color_palette = config$color_palette, shapes = config$shapes)
-if (is.null(df)) {
-  stop("Failed to map agency colors and country shapes.")
-}
-# Get taglist AFTER data preparation and time bin calculation
-taglist <- unique(df$elasmo)
-
-# Process Tagging Data
-processed_data <- process_tagging_data(df, ind, timeseq, config)
-if (is.null(processed_data)) {
-  stop("Failed to process tagging data.")
-}
-df <- processed_data$df
-temp <- processed_data$temp
-
-# 5. Create Abacus Plot
-create_abacus_plot(df, temp, taglist, config)
-message("Abacus plot generated successfully.")
