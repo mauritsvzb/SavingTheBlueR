@@ -105,6 +105,13 @@ generate_individual_summary <- function(config_list, filtered_data, ind_data, ti
   if (!is.null(min_days_detected)) {
     summary_data <- summary_data %>%
       filter(nbrday >= min_days_detected)
+
+    # Filter filtered_data to only include individuals present in summary_data
+    filtered_data <- filtered_data %>%
+      semi_join(summary_data, by = c("elasmo"))
+
+    # Save updated filtered data set
+    saveRDS(filtered_data, file.path(config_list$data_directory, "det_cleaned.rds"))
   }
 
   ind_data %>%
