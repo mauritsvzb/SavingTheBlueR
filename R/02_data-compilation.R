@@ -194,7 +194,7 @@ compile_data <- function(config_list, data_directory, timezone, filter_24h = FAL
 process_all_data <- function(config_list){
   tryCatch({
     # Run the compile function
-    compile_data(config_list,
+    compiled_data <- compile_data(config_list,
                  data_directory = config_list$data_directory,
                  timezone = config_list$data_timezone,
                  filter_24h = TRUE)
