@@ -167,18 +167,18 @@ calculate_time_bins <- function(config_list, df, timezone) {
   tryCatch({
     # Calculate time range
     min.time <- min(df$time)
-    min.time <- format(min.time, "%Y-%m-%d", tz = timezone)
-    min.time <- as.POSIXct(min.time, "%Y-%m-%d", tz = timezone)
+    min.time <- format(min.time, "%Y-%m-%d", tz = config_list$dat.TZ)
+    min.time <- as.POSIXct(min.time, "%Y-%m-%d", tz = config_list$dat.TZ)
 
     max.time <- max(df$time)
-    max.time <- format(max.time, "%Y-%m-%d", tz = timezone)
-    max.time <- as.POSIXct(max.time, "%Y-%m-%d", tz = timezone)
+    max.time <- format(max.time, "%Y-%m-%d", tz = config_list$dat.TZ)
+    max.time <- as.POSIXct(max.time, "%Y-%m-%d", tz = config_list$dat.TZ)
 
     # Create time sequence
     time.int <- difftime(max.time, min.time - (3600 * 24 * 30), units = config_list$timeint)
     lo <- ceiling(as.numeric(time.int)) / config_list$time
     timeseq <- seq(
-      from = min.time - (3600 * 24 * 30 * 7),
+      from = min.time - (3600 * 24),
       length.out = (lo + (0.4 * lo)),
       by = paste(config_list$time, config_list$timeint, sep = " ")
     )
@@ -315,11 +315,10 @@ map_agency_colors_and_country_shapes <- function(config_list, df, color_palette 
 #' @description Processes tagging data to add tagging dates to the abacus plot.
 #' @param config_list List containing configuration parameters (see Configuration Section).
 #' @param df Data frame containing detection data with color and shape mappings.
-#' @param ind Data frame containing tagging information.
 #' @param timeseq Vector of time intervals used for binning detection data.
 #' @param timezone The timezone for the data.
 #' @return A data frame containing tagging data with date and aesthetics for plotting.
-process_tagging_data <- function(config_list, df, ind, timeseq, timezone) {
+process_tagging_data <- function(config_list, df, timeseq, timezone) {
   tryCatch({
     # Create indice column
     taglist <- unique(df$elasmo)
@@ -389,7 +388,8 @@ process_tagging_data <- function(config_list, df, ind, timeseq, timezone) {
 #' @param temp Data frame containing tagging data with aesthetics.
 #' @param taglist Vector of unique tag IDs.
 #' @param timezone The timezone for the data.
-abacus_plot <- function(config_list, df, temp, taglist, timezone) {
+#' @param include_species_labels Whether species labels should be printed along the y axis (Default: FALSE)
+abacus_plot <- function(config_list, df, temp, taglist, timezone, include_species_labels = TRUE, include_legend = TRUE) {
   tryCatch({
     # Open TIFF file for output
     tiff(
@@ -406,7 +406,7 @@ abacus_plot <- function(config_list, df, temp, taglist, timezone) {
     # Create the plot
     plot(
       df$date, df$indice,
-      xlim = c((min(df$date) - months(5)), max(df$date)),
+      xlim = c((min(df$date) - months(0)), max(df$date)),
       cex = rep(config_list$default_point_size, length(df$indice)),
       col = as.character(df$tagging_date_color),
       pch = df$tagging_date_symbol,
@@ -433,44 +433,51 @@ abacus_plot <- function(config_list, df, temp, taglist, timezone) {
     axis(side = 2, line = 2.0, at = 1:length(taglist), labels = temp$sex, las = 2, cex.axis = config_list$vertical_axis_label_cex, tick = F) # sets secondary y-axis label: Sex
     axis(side = 2, line = 3.0, at = 1:length(taglist), labels = temp$stl, las = 2, cex.axis = config_list$vertical_axis_label_cex, tick = F) # sets tertiary y-axis label: STL
 
+    # Conditional hierarchical labeling to show species groups
+    if(include_species_labels) {
+      # Inventorize species contained in data set
+      unique_species <- unique(temp$species)
+
+      # Create a vector of positions for each unique species
+      species_positions <- tapply(1:length(temp$species), temp$species, min)
+
+      # Add the labels
+      mtext(side = 2, text = unique_species,
+            at = species_positions,
+            line = config_list$species_label_line, las = 2, cex = 0.8)
+    }
+
     # Set horizontal axes labels: Months and Years
-    axis.POSIXct(1, at = seq((min(df$date) - months(6)), max(df$date), by = "month") - 1, format = "%b",
-                 las = 2, cex.axis = config_list$horizontal_axis_label_cex) # sets primary x axis label, months
-    axis.POSIXct(1, line = 1.2, at = seq(as.POSIXct("2011-01-01 00:00:00", tz = timezone), max(df$date), by = "year"), format = "%Y",
-                 las = 0, cex.axis = config_list$horizontal_axis_label_cex, tick = F) # sets secondary x axis label: year
+    # Calculate the first day of the month following the minimum date
+    first_of_next_month <- ceiling_date(min(df$date), "month")
+
+    axis.POSIXct(1,at = seq(first_of_next_month, max(df$date), by = "month"), format = "%b",
+                 las = 2, cex.axis = 0.7) # sets primary x axis label, months
+    axis.POSIXct(1, line = 1.2, at = seq(as.POSIXct("2011-01-01 00:00:00", tz = "US/Eastern"),max(df$date), by = "year"), format = "%Y",
+                 las = 0, cex.axis = 0.7, tick = F) # sets secondary x axis label: year
 
     # Add Tagging Dates
     points(temp$date, temp$indice, col = temp$tagging_date_color, pch = temp$tagging_date_symbol)
 
-    # Create the legend
-    tpch <- df %>%
-      select(agency, country, tagging_date_color, tagging_date_symbol) %>%
-      distinct() %>%
-      arrange(country)
+    # Add legend conditionally
+    if(include_legend){
+      tpch <- df %>%
+        select(agency, country, tagging_date_color, tagging_date_symbol) %>%
+        distinct() %>%
+        arrange(country)
 
-    # Add hierarchical labeling to show groups:
-    unique_species <- unique(temp$species)
-
-    # Create a vector of positions for each unique species
-    species_positions <- tapply(1:length(temp$species), temp$species, min)
-
-    # Add the labels
-    mtext(side = 2, text = unique_species,
-          at = species_positions,
-          line = config_list$species_label_line, las = 2, cex = 0.8)
-
-    # add legend to the plot
-    legend(
-      "topleft",
-      inset = config_list$legend_inset,
-      legend = tpch$agency,
-      pch = tpch$tagging_date_symbol,
-      col = as.character(tpch$tagging_date_color),
-      cex = config_list$legend_text_cex,
-      text.width = max(strwidth(tpch$agency, units = "user", cex = 0.8)),
-      y.intersp = 0.9, # Adjust this value to control vertical spacing
-      bty = config_list$legend_box
-    )
+      legend(
+        "topleft",
+        inset = config_list$legend_inset,
+        legend = tpch$agency,
+        pch = tpch$tagging_date_symbol,
+        col = as.character(tpch$tagging_date_color),
+        cex = config_list$legend_text_cex,
+        text.width = max(strwidth(tpch$agency, units = "user", cex = 0.8)),
+        y.intersp = 0.9, # Adjust this value to control vertical spacing
+        bty = config_list$legend_box
+      )
+    }
 
     dev.off()
 
@@ -601,7 +608,6 @@ generate_abacus_plot = function(config_list){
   processed_data <- process_tagging_data(
     config_list,
     df = df,
-    ind = ind,
     timeseq = timeseq,
     timezone = config_list$dat.TZ
   )
@@ -614,10 +620,12 @@ generate_abacus_plot = function(config_list){
   # 5. Create Abacus Plot
   abacus_plot(
     config_list,
-    df = df,
-    temp = temp,
-    taglist = taglist,
-    timezone = config_list$dat.TZ
+    df,
+    temp,
+    taglist,
+    timezone = config_list$dat.TZ,
+    include_species_labels = config_list$species_labels,
+    include_legend = config_list$include_legend
   )
 
   message("Abacus plot generated successfully.")
