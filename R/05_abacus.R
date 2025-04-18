@@ -316,10 +316,10 @@ map_agency_colors_and_country_shapes <- function(config_list, df, color_palette 
 #' @param config_list List containing configuration parameters (see Configuration Section).
 #' @param df Data frame containing detection data with color and shape mappings.
 #' @param ind Data frame containing tagging information.
-#' @param timeint Vector of time intervals used for binning detection data.
+#' @param timeseq Vector of time intervals used for binning detection data.
 #' @param timezone The timezone for the data.
 #' @return A data frame containing tagging data with date and aesthetics for plotting.
-process_tagging_data <- function(config_list, df, ind, timeint, timezone) {
+process_tagging_data <- function(config_list, df, ind, timeseq, timezone) {
   tryCatch({
     # Create indice column
     taglist <- unique(df$elasmo)
@@ -602,7 +602,7 @@ generate_abacus_plot = function(config_list){
     config_list,
     df = df,
     ind = ind,
-    timeint = timeseq,
+    timeseq = timeseq,
     timezone = config_list$dat.TZ
   )
   if (is.null(processed_data)) {
