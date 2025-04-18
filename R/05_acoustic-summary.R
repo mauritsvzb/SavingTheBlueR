@@ -68,12 +68,13 @@ create_time_intervals <- function(det_data, start_point = NULL, end_point = NULL
 # Function: generate_individual_summary
 #-------------------------------------------------------------------------------
 #' @description Generates summary statistics for individual animals.
+#' @param config_list List of configuration parameters.
 #' @param filtered_data Filtered detection data for specific time interval.
 #' @param ind_data Individual metadata.
 #' @param timezone Timezone for the individual metadata.
 #' @param min_days_detected Optional minimum number of days detected to include an animal (default: NULL).
 #' @return Tibble with individual summary statistics.
-generate_individual_summary <- function(filtered_data, ind_data, timezone, min_days_detected = NULL) {
+generate_individual_summary <- function(config_list, filtered_data, ind_data, timezone, min_days_detected = NULL) {
   if (nrow(filtered_data) == 0) {
     return(tibble(
       ID = character(), Species = character(), `Date tagged` = character(),
@@ -165,10 +166,6 @@ save_analysis_outputs <- function(object, save_path, file_name, interval_id = NU
 }
 
 #-------------------------------------------------------------------------------
-# Main Script Execution
-#-------------------------------------------------------------------------------
-
-#-------------------------------------------------------------------------------
 # Main Function: datasummary
 #-------------------------------------------------------------------------------
 #' @description Main function to generate detection summaries.
@@ -203,7 +200,8 @@ datasummary <- function(config_list) {
       filter(time >= timeseq[k], time < timeseq[k + 1])
 
     # Generate and save individual summaries.
-    individual_summary <- generate_individual_summary(filtered_data = interval_data,
+    individual_summary <- generate_individual_summary(config_list,
+                                                      filtered_data = interval_data,
                                                       ind_data = ind_data,
                                                       timezone = config_list$timezone,
                                                       min_days_detected = config_list$min_days
