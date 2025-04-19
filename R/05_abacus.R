@@ -389,7 +389,9 @@ process_tagging_data <- function(config_list, df, timeseq, timezone) {
 #' @param taglist Vector of unique tag IDs.
 #' @param timezone The timezone for the data.
 #' @param include_species_labels Whether species labels should be printed along the y axis (Default: FALSE)
-abacus_plot <- function(config_list, df, temp, taglist, timezone, include_species_labels = TRUE, include_legend = TRUE) {
+#' @param include_legend Whether to include a legend in the plot
+#' @param xlim_months_left Integer. Number of months to extend the x-axis to the left of the earliest date (default: 0).
+abacus_plot <- function(config_list, df, temp, taglist, timezone, include_species_labels = TRUE, include_legend = TRUE, xlim_months_left = 0) {
   tryCatch({
     # Open TIFF file for output
     tiff(
@@ -406,7 +408,7 @@ abacus_plot <- function(config_list, df, temp, taglist, timezone, include_specie
     # Create the plot
     plot(
       df$date, df$indice,
-      xlim = c((min(df$date) - months(0)), max(df$date)),
+      xlim = c((min(df$date) - months(xlim_months_left)), max(df$date)),
       cex = rep(config_list$default_point_size, length(df$indice)),
       col = as.character(df$tagging_date_color),
       pch = df$tagging_date_symbol,
@@ -453,7 +455,7 @@ abacus_plot <- function(config_list, df, temp, taglist, timezone, include_specie
 
     axis.POSIXct(1,at = seq(first_of_next_month, max(df$date), by = "month"), format = "%b",
                  las = 2, cex.axis = 0.7) # sets primary x axis label, months
-    axis.POSIXct(1, line = 1.2, at = seq(as.POSIXct("2011-01-01 00:00:00", tz = "US/Eastern"),max(df$date), by = "year"), format = "%Y",
+    axis.POSIXct(1, line = 1.2, at = seq(as.POSIXct("2011-01-01 00:00:00", tz = timezone),max(df$date), by = "year"), format = "%Y",
                  las = 0, cex.axis = 0.7, tick = F) # sets secondary x axis label: year
 
     # Add Tagging Dates
@@ -625,7 +627,8 @@ generate_abacus_plot = function(config_list){
     taglist,
     timezone = config_list$dat.TZ,
     include_species_labels = config_list$species_labels,
-    include_legend = config_list$include_legend
+    include_legend = config_list$include_legend,
+    xlim_months_left = config_list$xlim_months_left
   )
 
   message("Abacus plot generated successfully.")
