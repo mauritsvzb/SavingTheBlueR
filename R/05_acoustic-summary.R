@@ -15,7 +15,7 @@
 #-------------------------------------------------------------------------------
 
 # Fresh Start  # Un-comment below code if you want to run in this script
-rm(list = ls())
+# rm(list = ls())
 
 # Load Libraries  # Un-comment below code if you want to run in this script
 # if (!require("pacman")) install.packages("pacman")
