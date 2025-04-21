@@ -175,7 +175,7 @@ create_residency_plot <- function(proportions, font_family, text_size) {
   ggplot(proportions, aes(x = M, y = mean_active_prop, group = species,
                           color = species)) +
     geom_line(aes(linetype = species)) +
-    labs(x = 'Month of year', y = 'Proportional tags active') +
+    labs(x = 'Month of year', y = 'Proportional tags active', color = "Species", linetype = "Species") +
     theme_bw() +
     theme(
       text = element_text(size = text_size, family = font_family),
