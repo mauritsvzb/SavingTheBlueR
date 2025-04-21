@@ -635,5 +635,3 @@ generate_abacus_plot = function(config_list){
 
   message("Abacus plot generated successfully.")
 }
-
-generate_abacus_plot(config_list)
