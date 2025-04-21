@@ -28,8 +28,8 @@
 #   time = 4, # Time resolution of data points (in days)
 #   sep = ",", # Separator for CSV files
 #   dec = ".", # Decimal separator
-#   exclude_site = NULL, # (OPTIONAL) Filter for tagging site
-#   filter_species = NULL, # (OPTIONAL) Filter for species
+#   exclude_site = NULL, # (OPTIONAL) Filter for tagging site; In this case this was done in L200
+#   filter_species = NULL, # (OPTIONAL) Filter for species; In this case this was done in L199
 #   start_time = NULL, # In local time zone e.g., "2018-01-01 00:00:00"
 #   end_time = NULL, # In local time zone e.g., "2020-12-31 23:59:59"
 #   color_palette = c( # (OPTIONAL) Color palette to use,
@@ -37,17 +37,20 @@
 #     "#CC6677", "#882255", "#AA4499", "#661100", "#6699CC", "#AA4466", "#4477AA"),
 #   shapes = c( # (OPTIONAL) Shape mapping to use,
 #     16, 17, 15, 18, 8, 7, 6),
-#   output_filename = "abacus.tiff", # Name of the output TIFF file
+#   output_filename = "abacus_season.tiff", # Name of the output TIFF file
 #   image_width = 340, # Width of the output image in mm
 #   image_height = 300, # Height of the output image in mm
 #   plot_resolution = 300, # Resolution of the output image in DPI
 #   tagging_date_color = "red", # Color for tagging date points
 #   tagging_date_symbol = "|", # Shape for tagging date points
 #   default_point_size = 0.8, # Default size for detection points
+#   species_labels = TRUE, # Whether species labels should be used
 #   species_label_line = 5.5, # Distance of species labels from the axis
+#   include_legend = TRUE, # Whether you want to show a legend
 #   legend_inset = c(0.01, 0.01), # Inset for the legend position
 #   legend_text_cex = 0.7, # Legend text size
 #   legend_box = "y", # Show legend box
+#   xlim_months_left = 1, # Number of months to extend left of min date on x-axis
 #   vertical_axis_label_cex = 0.7, # Vertical axis labels size
 #   horizontal_axis_label_cex = 0.7 # Horizontal axis labels size
 # )
@@ -288,20 +291,18 @@ map_agency_colors_and_country_shapes <- function(config_list, df, color_palette 
     # Create mappings
     color_mapping <- tibble(
       agency = agencies,
-      color = color_palette[1:length(agencies)]
+      data_point_color = color_palette[1:length(agencies)]
       )
 
     shape_mapping <- tibble(
       country = countries,
-      shape = shapes[1:length(countries)]
+      data_point_shape = shapes[1:length(countries)]
       )
 
     # Merge with dataframe
     df %>%
       left_join(color_mapping, by = "agency") %>%
-      rename(tagging_date_color = color) %>%
-      left_join(shape_mapping, by = "country") %>%
-      rename(tagging_date_symbol = shape)
+      left_join(shape_mapping, by = "country")
   }, error = function(e) {
     message("Error in map_agency_colors_and_country_shapes: ",
             e$message)
@@ -410,8 +411,8 @@ abacus_plot <- function(config_list, df, temp, taglist, timezone, include_specie
       df$date, df$indice,
       xlim = c((min(df$date) - months(xlim_months_left)), max(df$date)),
       cex = rep(config_list$default_point_size, length(df$indice)),
-      col = as.character(df$tagging_date_color),
-      pch = df$tagging_date_symbol,
+      col = as.character(df$data_point_color),
+      pch = df$data_point_shape,
       yaxt = "n", xaxt = "n", ann = F
     )
 
@@ -464,7 +465,7 @@ abacus_plot <- function(config_list, df, temp, taglist, timezone, include_specie
     # Add legend conditionally
     if(include_legend){
       tpch <- df %>%
-        select(agency, country, tagging_date_color, tagging_date_symbol) %>%
+        select(agency, country, data_point_color, data_point_shape) %>%
         distinct() %>%
         arrange(country)
 
@@ -472,8 +473,8 @@ abacus_plot <- function(config_list, df, temp, taglist, timezone, include_specie
         "topleft",
         inset = config_list$legend_inset,
         legend = tpch$agency,
-        pch = tpch$tagging_date_symbol,
-        col = as.character(tpch$tagging_date_color),
+        pch = tpch$data_point_shape,
+        col = as.character(tpch$data_point_color),
         cex = config_list$legend_text_cex,
         text.width = max(strwidth(tpch$agency, units = "user", cex = 0.8)),
         y.intersp = 0.9, # Adjust this value to control vertical spacing
@@ -603,6 +604,7 @@ generate_abacus_plot = function(config_list){
   if (is.null(df)) {
     stop("Failed to map agency colors and country shapes.")
   }
+
   # Get taglist AFTER data preparation and time bin calculation
   taglist <- unique(df$elasmo)
 
@@ -633,3 +635,5 @@ generate_abacus_plot = function(config_list){
 
   message("Abacus plot generated successfully.")
 }
+
+generate_abacus_plot(config_list)
