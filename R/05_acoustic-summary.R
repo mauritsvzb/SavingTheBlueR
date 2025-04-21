@@ -15,23 +15,26 @@
 #-------------------------------------------------------------------------------
 
 # Fresh Start  # Un-comment below code if you want to run in this script
-# rm(list = ls())
+rm(list = ls())
 
 # Load Libraries  # Un-comment below code if you want to run in this script
-# if (!require("pacman")) install.packages("pacman")
-# pacman::p_load(here, tidyverse, lubridate)
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(here, tidyverse, lubridate)
 
 # Global Configuration  # Un-comment below code if you want to run in this script
-# config_list <- list(
-#   data_directory = here::here("data"), # Base directory path.
-#   output_directory = here::here("output"), # Output directory path.
-#   timezone = "US/Eastern", # Timezone for date handling.
-#   start.p = NULL, # Optional start date (POSIXct).
-#   end.p = NULL, # Optional end date (POSIXct).
-#   timeint = FALSE, # Use time intervals (TRUE/FALSE).
-#   agency = FALSE # Group by agency (TRUE/FALSE).
-#   min_days = NULL # Minimum number of days a tag should've been detected in the array
-# )
+config_list <- list(
+  data_directory = here::here("data"), # Base directory path.
+  output_directory = here::here("output"), # Output directory path.
+  detections_file = "det_cleaned.rds", # Detection file to use
+  individual_attribute_file = "ind.rds", # Individual tag meta data file to use
+  detections_file_updated = "det_cleaned.rds",
+  timezone = "US/Eastern", # Timezone for date handling.
+  start.p = NULL, # Optional start date (POSIXct).
+  end.p = NULL, # Optional end date (POSIXct).
+  timeint = FALSE, # Use time intervals (TRUE/FALSE).
+  agency = FALSE, # Group by agency (TRUE/FALSE).
+  min_days = NULL # Minimum number of days a tag should've been detected in the array
+)
 
 # Function Definitions
 
@@ -111,7 +114,7 @@ generate_individual_summary <- function(config_list, filtered_data, ind_data, ti
       semi_join(summary_data, by = c("elasmo"))
 
     # Save updated filtered data set
-    saveRDS(filtered_data, file.path(config_list$data_directory, "det_cleaned.rds"))
+    saveRDS(filtered_data, file.path(config_list$data_directory, config_list$detections_file_updated))
   }
 
   ind_data %>%
@@ -183,8 +186,8 @@ datasummary <- function(config_list) {
   if (!dir.exists(config_list$output_directory)) dir.create(config_list$output_directory, recursive = TRUE)
 
   # Load data.
-  det_cleaned <- readRDS(file.path(config_list$data_directory, "det_cleaned.rds"))
-  ind_data <- readRDS(file.path(config_list$data_directory, "ind.rds"))
+  det_cleaned <- readRDS(file.path(config_list$data_directory, config_list$detections_file))
+  ind_data <- readRDS(file.path(config_list$data_directory, config_list$individual_attribute_file))
 
   # Create time intervals with both start and end dates.
   time_data <- create_time_intervals(det_data = det_cleaned,
