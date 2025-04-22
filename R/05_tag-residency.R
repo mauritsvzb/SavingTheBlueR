@@ -121,8 +121,10 @@ join_activity_deployment <- function(active, deployed) {
 
   # Clean up results
   agg %>%
-    select(-date_tagged,
-           -ym)
+    select(
+      -date_tagged,
+      -ym
+    )
 }
 
 #-------------------------------------------------------------------------------
@@ -172,17 +174,19 @@ calculate_monthly_proportions <- function(joined_data, skeleton_grid) {
 #' @param proportions Data frame from calculate_monthly_proportions
 #' @return ggplot object
 create_residency_plot <- function(proportions, font_family, text_size) {
-  ggplot(proportions, aes(x = M, y = mean_active_prop, group = species,
-                          color = species)) +
+  ggplot(proportions, aes(
+    x = M, y = mean_active_prop, group = species,
+    color = species
+  )) +
     geom_line(aes(linetype = species)) +
-    labs(x = 'Month of year', y = 'Proportional tags active', color = "Species", linetype = "Species") +
+    labs(x = "Month of year", y = "Proportional tags active", color = "Species", linetype = "Species") +
     theme_bw() +
     theme(
       text = element_text(size = text_size, family = font_family),
       legend.title = element_text(size = text_size, family = font_family), # Size of legend title
       legend.text = element_text(face = "italic") # Italicize legend texxt
     ) +
-  ylim(0, 1)
+    ylim(0, 1)
 }
 
 #-------------------------------------------------------------------------------
@@ -199,7 +203,7 @@ process_residency_analysis <- function(config_list) {
   det <- readRDS(file.path(config_list$data_directory, config_list$detections_file))
   ind <- readRDS(file.path(config_list$data_directory, config_list$individual_attribute_file))
 
- # Processing pipeline
+  # Processing pipeline
   active <- calculate_active_tags(det, ind)
   deployed <- calculate_deployed_tags(ind)
   joined <- join_activity_deployment(active, deployed)
@@ -219,11 +223,11 @@ process_residency_analysis <- function(config_list) {
   # Generate plot
   p <- create_residency_plot(proportions, font_family = config_list$font_family, text_size = config_list$text_size)
 
-  ggsave(filename = file.path(config_list$output_directory, config_list$output_plot),
-         plot = p,
-         width = config_list$plot_width,
-         height = config_list$plot_height,
-         dpi = config_list$plot_dpi
-         )
-
+  ggsave(
+    filename = file.path(config_list$output_directory, config_list$output_plot),
+    plot = p,
+    width = config_list$plot_width,
+    height = config_list$plot_height,
+    dpi = config_list$plot_dpi
+  )
 }
