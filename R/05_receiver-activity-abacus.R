@@ -57,16 +57,19 @@ load_and_validate_data <- function(config_list, data_folder) {
     }
   }
 
-  tryCatch({
-    list(
-      det = readRDS(file.path(data_folder, config_list$files$det)),
-      vmov = readRDS(file.path(data_folder, config_list$files$vmov)),
-      ind = readRDS(file.path(data_folder, config_list$files$ind)),
-      loc = readRDS(file.path(data_folder, config_list$files$vloc))
-    )
-  }, error = function(e) {
-    stop("Data loading failed: ", e$message)
-  })
+  tryCatch(
+    {
+      list(
+        det = readRDS(file.path(data_folder, config_list$files$det)),
+        vmov = readRDS(file.path(data_folder, config_list$files$vmov)),
+        ind = readRDS(file.path(data_folder, config_list$files$ind)),
+        loc = readRDS(file.path(data_folder, config_list$files$vloc))
+      )
+    },
+    error = function(e) {
+      stop("Data loading failed: ", e$message)
+    }
+  )
 }
 
 #-------------------------------------------------------------------------------
@@ -89,9 +92,9 @@ clean_receiver_data <- function(config_list, vmov, timezone) {
     mutate(
       date_out = case_when( # Change retrieval dates for ccdrop and drop 5 so that it reflects time date when the data error occurred?
         (date_in == as.POSIXct("2023-06-03 17:15:00", tz = timezone) &
-           location == "drop5") ~ as.POSIXct("2023-07-10 12:42:00", tz = timezone),
+          location == "drop5") ~ as.POSIXct("2023-07-10 12:42:00", tz = timezone),
         (date_in == as.POSIXct("2023-05-30 15:32:00", tz = timezone) &
-           location == "ccdrop") ~ as.POSIXct("2023-07-23 12:42:00", tz = timezone),
+          location == "ccdrop") ~ as.POSIXct("2023-07-23 12:42:00", tz = timezone),
         TRUE ~ date_out
       )
     )
@@ -107,7 +110,7 @@ clean_receiver_data <- function(config_list, vmov, timezone) {
 #' @return Tibble with weekly deployment data
 create_weekly_deployment_data <- function(config_list, vmov, timezone) {
   vmov %>%
-    mutate(across(c(date_in, date_out), ~as.Date(., tz = timezone))) %>%
+    mutate(across(c(date_in, date_out), ~ as.Date(., tz = timezone))) %>%
     rowwise() %>%
     mutate(weeks = list(seq(date_in, date_out, by = "week"))) %>%
     unnest(weeks) %>%
@@ -135,7 +138,7 @@ create_weekly_detection_data <- function(config_list, det, vmov, timezone) {
       relationship = "many-to-many"
     ) %>%
     filter(date >= as.Date(date_in, tz = timezone) &
-             date <= as.Date(date_out, tz = timezone)) %>%
+      date <= as.Date(date_out, tz = timezone)) %>%
     group_by(location, station, date_in, date_out) %>%
     summarise(
       start_date = min(date),
@@ -166,7 +169,7 @@ add_offset <- function(data, offset = 0.4) {
 
   data %>%
     mutate(y_position = as.numeric(factor(location)) +
-             ifelse(source == "Det.", offset, 0))
+      ifelse(source == "Det.", offset, 0))
 }
 
 #-------------------------------------------------------------------------------
