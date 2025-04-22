@@ -53,26 +53,26 @@ standardize_time <- function(x) {
 #' @return A standardized data frame with appropriate column types, NA values, and time format
 standardize_and_convert <- function(df) {
   df %>%
-    as.data.frame() %>%  # Convert to standard dataframe
-    mutate(across(everything(), ~{
+    as.data.frame() %>% # Convert to standard dataframe
+    mutate(across(everything(), ~ {
       if (is.character(.)) {
         ifelse(. %in% c("NA", "<NA>", ""), NA_character_, .)
       } else if (is.factor(.)) {
-        fct <- factor(., exclude = NULL)  # Ensure NA is a level
+        fct <- factor(., exclude = NULL) # Ensure NA is a level
         levels(fct)[levels(fct) %in% c("NA", "<NA>")] <- NA_character_
         fct
       } else {
         .
       }
     })) %>%
-    mutate(across(where(is.character), ~{
-      if(all(is.na(.) | grepl("^\\s*[-+]?[0-9]*\\.?[0-9]+\\s*$", ., perl = TRUE))) {
+    mutate(across(where(is.character), ~ {
+      if (all(is.na(.) | grepl("^\\s*[-+]?[0-9]*\\.?[0-9]+\\s*$", ., perl = TRUE))) {
         as.numeric(.)
       } else {
         .
       }
     })) %>%
-    mutate(across(everything(), standardize_time))  # Standardize time format
+    mutate(across(everything(), standardize_time)) # Standardize time format
 }
 
 #-------------------------------------------------------------------------------
