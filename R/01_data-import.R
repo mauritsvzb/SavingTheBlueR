@@ -50,11 +50,14 @@
 #' enabling access to Google Drive files and folders.
 #' @return None. The function performs authentication as a side effect.
 authenticate_drive <- function() {
-  tryCatch({
-    drive_auth()
-  }, error = function(e) {
-    stop("Failed to authenticate with Google Drive: ", e$message)
-  })
+  tryCatch(
+    {
+      drive_auth()
+    },
+    error = function(e) {
+      stop("Failed to authenticate with Google Drive: ", e$message)
+    }
+  )
 }
 
 #-------------------------------------------------------------------------------
@@ -76,56 +79,60 @@ authenticate_drive <- function() {
 #' #   col_types = c("INS_SERIAL_NO" = "text")
 #' # )
 import_data_from_gdrive <- function(config_list, folder_url, file_pattern, sheet = 1, col_types = NULL) {
-  tryCatch({
+  tryCatch(
+    {
+      # Get the folder and file
+      folder <- drive_get(folder_url)
+      file <- drive_ls(folder, pattern = file_pattern)
 
-    # Get the folder and file
-    folder <- drive_get(folder_url)
-    file <- drive_ls(folder, pattern = file_pattern)
+      # Check if the file exists
+      if (nrow(file) == 0) {
+        stop(paste("File not found in Google Drive folder:", folder_url, "with pattern:", file_pattern))
+      }
 
-    # Check if the file exists
-    if (nrow(file) == 0) {
-      stop(paste("File not found in Google Drive folder:", folder_url, "with pattern:", file_pattern))
+      # Download the file to a temporary location
+      temp_file <- tempfile(fileext = ".xlsx")
+      drive_download(file = file$id, path = temp_file, overwrite = TRUE)
+
+      # The below code chunk L65-77 is used to correctly assign data type to 'INS_SERIAL_NO'when function used to import the OTN short form
+      # Get all column names from the Excel file
+      all_col_names <- names(read_excel(temp_file, sheet = sheet, n_max = 0))
+
+      # Create a col_types vector with "guess" for all columns
+      all_col_types <- rep("guess", length(all_col_names))
+      names(all_col_types) <- all_col_names # Assign names to the vector
+
+      # Overwrite the specific column type if it exists in the sheet
+      if ("INS_SERIAL_NO" %in% all_col_names) {
+        all_col_types["INS_SERIAL_NO"] <- "numeric"
+      }
+      if ("event_ts" %in% all_col_names) { # this is needed because of the difference in which R and google drive save and read dates
+        all_col_types["event_ts"] <- "numeric" # Read event_ts as numeric
+      }
+
+      # Read the Excel file
+      # The suppressWarnings() is used to silence harmless warnings related to code chunk L65-77 above
+      data <- suppressWarnings(read_excel(temp_file,
+        sheet = sheet, col_types = all_col_types,
+        na = "NA"
+      ))
+
+      # Convert event_ts to proper time format (related to L81-83)
+      if ("event_ts" %in% names(data)) {
+        data$event_ts <- format(as.POSIXct((data$event_ts - 2) * 86400, origin = "1900-01-01", tz = "UTC"), "%H:%M:%S")
+      }
+
+      # Clean up the temporary file
+      unlink(temp_file)
+
+      return(data)
+    },
+    error = function(e) {
+      # Handle errors
+      cat("Error importing data:", e$message, "\n")
+      return(NULL)
     }
-
-    # Download the file to a temporary location
-    temp_file <- tempfile(fileext = ".xlsx")
-    drive_download(file = file$id, path = temp_file, overwrite = TRUE)
-
-    # The below code chunk L65-77 is used to correctly assign data type to 'INS_SERIAL_NO'when function used to import the OTN short form
-    # Get all column names from the Excel file
-    all_col_names <- names(read_excel(temp_file, sheet = sheet, n_max = 0))
-
-    # Create a col_types vector with "guess" for all columns
-    all_col_types <- rep("guess", length(all_col_names))
-    names(all_col_types) <- all_col_names  # Assign names to the vector
-
-    # Overwrite the specific column type if it exists in the sheet
-    if ("INS_SERIAL_NO" %in% all_col_names) {
-      all_col_types["INS_SERIAL_NO"] <- "numeric"
-    }
-    if ("event_ts" %in% all_col_names) { #this is needed because of the difference in which R and google drive save and read dates
-      all_col_types["event_ts"] <- "numeric"  # Read event_ts as numeric
-    }
-
-    # Read the Excel file
-    # The suppressWarnings() is used to silence harmless warnings related to code chunk L65-77 above
-    data <- suppressWarnings(read_excel(temp_file, sheet = sheet, col_types = all_col_types,
-                                        na = "NA"))
-
-    # Convert event_ts to proper time format (related to L81-83)
-    if ("event_ts" %in% names(data)) {
-      data$event_ts <- format(as.POSIXct((data$event_ts - 2) * 86400, origin = "1900-01-01", tz = "UTC"), "%H:%M:%S")
-    }
-
-    # Clean up the temporary file
-    unlink(temp_file)
-
-    return(data)
-  }, error = function(e) {
-    # Handle errors
-    cat("Error importing data:", e$message, "\n")
-    return(NULL)
-  })
+  )
 }
 
 #-------------------------------------------------------------------------------
@@ -139,11 +146,11 @@ import_data_from_gdrive <- function(config_list, folder_url, file_pattern, sheet
 extract_receiver_metadata <- function(config_list, otn_data, excluded_locations = NULL) {
   rec_attr <- otn_data %>%
     filter(
-      !(station_no == "SHARKHOLE" & deploy_lat == "24.42684") & #remove retired location
-        ins_model_no == "VR2W" & #keep receivers only
-        (is.null(excluded_locations) | !station_no %in% excluded_locations) #exclude locations, if specified
+      !(station_no == "SHARKHOLE" & deploy_lat == "24.42684") & # remove retired location
+        ins_model_no == "VR2W" & # keep receivers only
+        (is.null(excluded_locations) | !station_no %in% excluded_locations) # exclude locations, if specified
     ) %>%
-    select( #select columns we want to keep
+    select( # select columns we want to keep
       deploy_lat,
       deploy_long,
       station_no,
@@ -151,19 +158,19 @@ extract_receiver_metadata <- function(config_list, otn_data, excluded_locations 
       riser_length,
       instrument_depth
     ) %>%
-    rename( #rename for clarity
+    rename( # rename for clarity
       location = station_no
     ) %>%
     mutate(
       deploy_lat = as.numeric(deploy_lat),
       deploy_long = as.numeric(deploy_long),
       agency = "STB (BAH)",
-      location = str_replace_all(str_squish(str_to_lower(location)), "\\s", "_") #Converts strings to lowercase, trim leading/trailing whitespace
+      location = str_replace_all(str_squish(str_to_lower(location)), "\\s", "_") # Converts strings to lowercase, trim leading/trailing whitespace
     ) %>%
     arrange(
       location
     ) %>%
-    distinct( #remove duplicates if any
+    distinct( # remove duplicates if any
       deploy_lat,
       deploy_long,
       location,
@@ -185,12 +192,12 @@ extract_receiver_metadata <- function(config_list, otn_data, excluded_locations 
 extract_receiver_deployment_data <- function(config_list, otn_data, excluded_locations = NULL, timezone) {
   rec_mov <- otn_data %>%
     filter(
-      !(station_no == "SHARKHOLE" & deploy_lat == "24.42684") & #retired station
+      !(station_no == "SHARKHOLE" & deploy_lat == "24.42684") & # retired station
         ins_model_no == "VR2W" &
-        (is.null(excluded_locations) | !station_no %in% excluded_locations) & #exclude locations, if specified
-        deploy_date_time_yyyy_mm_dd_thh_mm_ss != "2022-xxxxx" & #remove rows with incomplete metadata
-        data_downloaded_y_n == "Y" & #only keep rows that show a complete receiver cycle (deploy + retrieve)
-        !(station_no == "On Buoy" & deploy_date_time_yyyy_mm_dd_thh_mm_ss == "2023-06-23T15:00:00") #NOTE: TEMPORARY FILTER. Awaiting (meta)data for this location
+        (is.null(excluded_locations) | !station_no %in% excluded_locations) & # exclude locations, if specified
+        deploy_date_time_yyyy_mm_dd_thh_mm_ss != "2022-xxxxx" & # remove rows with incomplete metadata
+        data_downloaded_y_n == "Y" & # only keep rows that show a complete receiver cycle (deploy + retrieve)
+        !(station_no == "On Buoy" & deploy_date_time_yyyy_mm_dd_thh_mm_ss == "2023-06-23T15:00:00") # NOTE: TEMPORARY FILTER. Awaiting (meta)data for this location
     ) %>%
     select(
       ins_serial_no,
@@ -200,12 +207,12 @@ extract_receiver_deployment_data <- function(config_list, otn_data, excluded_loc
       comments
     ) %>%
     mutate(
-      ins_serial_no = str_remove(ins_serial_no, "\\.0$"), #remove ".0" from strings; these are unexplainably introduced when importing directly from google drive
-      deploy_date_time_yyyy_mm_dd_thh_mm_ss = str_replace(deploy_date_time_yyyy_mm_dd_thh_mm_ss, "T", " "), #remove the "T" in the middle
+      ins_serial_no = str_remove(ins_serial_no, "\\.0$"), # remove ".0" from strings; these are unexplainably introduced when importing directly from google drive
+      deploy_date_time_yyyy_mm_dd_thh_mm_ss = str_replace(deploy_date_time_yyyy_mm_dd_thh_mm_ss, "T", " "), # remove the "T" in the middle
       recover_date_time_yyyy_mm_dd_thh_mm_ss = str_replace(recover_date_time_yyyy_mm_dd_thh_mm_ss, "T", " "),
-      deploy_date_time_yyyy_mm_dd_thh_mm_ss = as.POSIXct(deploy_date_time_yyyy_mm_dd_thh_mm_ss, format = "%Y-%m-%d %H:%M:%S", tz = timezone), #convert to posixct
+      deploy_date_time_yyyy_mm_dd_thh_mm_ss = as.POSIXct(deploy_date_time_yyyy_mm_dd_thh_mm_ss, format = "%Y-%m-%d %H:%M:%S", tz = timezone), # convert to posixct
       recover_date_time_yyyy_mm_dd_thh_mm_ss = as.POSIXct(recover_date_time_yyyy_mm_dd_thh_mm_ss, format = "%Y-%m-%d %H:%M:%S", tz = timezone),
-      station_no = str_replace_all(str_squish(str_to_lower(station_no)), "\\s", "_") #Converts strings to lowercase, trim leading/trailing whitespace
+      station_no = str_replace_all(str_squish(str_to_lower(station_no)), "\\s", "_") # Converts strings to lowercase, trim leading/trailing whitespace
     ) %>%
     rename(
       location = station_no,
@@ -233,7 +240,7 @@ extract_receiver_deployment_data <- function(config_list, otn_data, excluded_loc
 extract_tag_metadata <- function(config_list, catch_data, timezone) {
   ind_attr <- catch_data %>%
     filter(
-      !(is.na(acoustic_tag_id)) & #filter out non-acoustic ids
+      !(is.na(acoustic_tag_id)) & # filter out non-acoustic ids
         trimws(acoustic_tag_id) != "NA"
     ) %>%
     mutate(
@@ -254,7 +261,8 @@ extract_tag_metadata <- function(config_list, catch_data, timezone) {
       site
     ) %>%
     distinct(
-      across(acoustic_tag_id), .keep_all = TRUE #removes duplicates which arise from re-entering acoustic ids when tagged shark gets recaptured
+      across(acoustic_tag_id),
+      .keep_all = TRUE # removes duplicates which arise from re-entering acoustic ids when tagged shark gets recaptured
     ) %>%
     arrange(
       species,
@@ -279,12 +287,12 @@ process_detection_files <- function(config_list, folder_path) {
     temp_file <- tempfile(fileext = ".csv")
     drive_download(file = as_id(file_id), path = temp_file, overwrite = TRUE)
 
-    df <- suppressWarnings(read_csv(temp_file, #suppress false alarm warnings that 10 columns are expected (=10 column headers) but
-                                    #in actuality there are only 8 (=data until 8th column)
-                                    col_types = cols(.default = "c"))
-    ) #read all columns as character
+    df <- suppressWarnings(read_csv(temp_file, # suppress false alarm warnings that 10 columns are expected (=10 column headers) but
+      # in actuality there are only 8 (=data until 8th column)
+      col_types = cols(.default = "c")
+    )) # read all columns as character
 
-    unlink(temp_file) #delete the temporary file
+    unlink(temp_file) # delete the temporary file
 
     return(df)
   })
@@ -307,8 +315,8 @@ process_detection_files <- function(config_list, folder_path) {
         sensor_unit = `Sensor Unit`
       ) %>%
       mutate(
-        station = str_replace(station, "VR2W-", ""), #remove receiver string
-        elasmo = str_replace(elasmo, "A69-9001-|A69-9006-|A69-1602-|A69-9002-|A69-1601-|A69-1303-", ""), #remove tag string
+        station = str_replace(station, "VR2W-", ""), # remove receiver string
+        elasmo = str_replace(elasmo, "A69-9001-|A69-9006-|A69-1602-|A69-9002-|A69-1601-|A69-1303-", ""), # remove tag string
         time = as.POSIXct(time, format = "%Y-%m-%d %H:%M", tz = "UTC"),
         elasmo = as.numeric(elasmo),
         agency = "STB (BAH)"
@@ -349,67 +357,69 @@ process_detection_files <- function(config_list, folder_path) {
 #' #   detection_folder_path = "..."
 #' # )
 #' # process_all_data(config)
-process_all_data <- function(config_list){
+process_all_data <- function(config_list) {
   # Authenticate with Google Drive
   authenticate_drive()
 
-  tryCatch({
-    # Import Data
-    otn_short <- import_data_from_gdrive(
-      config_list,
-      folder_url = config_list$otn_short_folder_url,
-      file_pattern = config_list$otn_short_file_pattern,
-      sheet = 2
-    )
+  tryCatch(
+    {
+      # Import Data
+      otn_short <- import_data_from_gdrive(
+        config_list,
+        folder_url = config_list$otn_short_folder_url,
+        file_pattern = config_list$otn_short_file_pattern,
+        sheet = 2
+      )
 
-    catch <- import_data_from_gdrive(
-      config_list,
-      folder_url = config_list$catch_folder_url,
-      file_pattern = config_list$catch_file_pattern,
-      sheet = 1
-    )
+      catch <- import_data_from_gdrive(
+        config_list,
+        folder_url = config_list$catch_folder_url,
+        file_pattern = config_list$catch_file_pattern,
+        sheet = 1
+      )
 
-    # 2. Clean Column Names
-    otn_short <- janitor::clean_names(otn_short)
+      # 2. Clean Column Names
+      otn_short <- janitor::clean_names(otn_short)
 
-    # 3. Extract Metadata
-    rec_attr <- extract_receiver_metadata(
-      config_list,
-      otn_data = otn_short,
-      excluded_locations = config_list$excluded_locations
-    )
+      # 3. Extract Metadata
+      rec_attr <- extract_receiver_metadata(
+        config_list,
+        otn_data = otn_short,
+        excluded_locations = config_list$excluded_locations
+      )
 
-    rec_mov  <- extract_receiver_deployment_data(
-      config_list,
-      otn_data = otn_short,
-      excluded_locations = config_list$excluded_locations,
-      timezone = config_list$data_timezone
-    )
+      rec_mov <- extract_receiver_deployment_data(
+        config_list,
+        otn_data = otn_short,
+        excluded_locations = config_list$excluded_locations,
+        timezone = config_list$data_timezone
+      )
 
-    ind_attr <- extract_tag_metadata(
-      config_list,
-      catch_data = catch,
-      timezone = config_list$data_timezone
-    )
+      ind_attr <- extract_tag_metadata(
+        config_list,
+        catch_data = catch,
+        timezone = config_list$data_timezone
+      )
 
-    # 4. Process Detection Files
-    raw_det <- process_detection_files(
-      config_list,
-      folder_path = config_list$detection_folder_path
-    )
+      # 4. Process Detection Files
+      raw_det <- process_detection_files(
+        config_list,
+        folder_path = config_list$detection_folder_path
+      )
 
-    # 5. Save Processed Data
-    data_files <- list(
-      vloc = rec_attr,
-      vmov = rec_mov,
-      ind = ind_attr,
-      det = raw_det
-    )
+      # 5. Save Processed Data
+      data_files <- list(
+        vloc = rec_attr,
+        vmov = rec_mov,
+        ind = ind_attr,
+        det = raw_det
+      )
 
-    purrr::iwalk(data_files, ~saveRDS(.x, file.path(config_list$data_directory, paste0(.y, ".rds"))))
-    print("All data process complete")
-
-  }, error = function(e) {
-    message("Error during execution: ", e$message)
-  })
+      purrr::iwalk(data_files, ~ saveRDS(.x, file.path(config_list$data_directory, paste0(.y, ".rds"))))
+      print("All data process complete")
+    },
+    error = function(e) {
+      message("Error during execution: ", e$message)
+    }
+  )
 }
