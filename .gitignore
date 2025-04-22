@@ -54,3 +54,7 @@ data/
 # Output folder
 output/
 
+# R environment
+renv/
+renv/staging
+
