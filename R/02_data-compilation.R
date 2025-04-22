@@ -39,28 +39,31 @@
 #' @param timezone The timezone for the data.
 #' @return A list containing the preprocessed dataframes.
 import_and_preprocess_data <- function(config_list, data_directory, timezone) {
-  tryCatch({
-    # Import detection data
-    det <- readRDS(file.path(data_directory, "det.rds")) %>%
-      mutate(
-        time = as.POSIXct(time, format = "%Y-%m-%d %H:%M", tz = "UTC") %>%
-          with_tz(timezone),
-        station = as.character(station),
-        elasmo = as.character(elasmo)
-      ) %>%
-      arrange(elasmo, time)
+  tryCatch(
+    {
+      # Import detection data
+      det <- readRDS(file.path(data_directory, "det.rds")) %>%
+        mutate(
+          time = as.POSIXct(time, format = "%Y-%m-%d %H:%M", tz = "UTC") %>%
+            with_tz(timezone),
+          station = as.character(station),
+          elasmo = as.character(elasmo)
+        ) %>%
+        arrange(elasmo, time)
 
-    # Import receiver movement data
-    vmov <- readRDS(file.path(data_directory, "vmov.rds"))
+      # Import receiver movement data
+      vmov <- readRDS(file.path(data_directory, "vmov.rds"))
 
-    # Import individual data
-    ind <- readRDS(file.path(data_directory, "ind.rds"))
+      # Import individual data
+      ind <- readRDS(file.path(data_directory, "ind.rds"))
 
-    list(det = det, vmov = vmov, ind = ind)
-  }, error = function(e) {
-    cat("Error importing and preprocessing data:", e$message, "\n")
-    return(NULL)
-  })
+      list(det = det, vmov = vmov, ind = ind)
+    },
+    error = function(e) {
+      cat("Error importing and preprocessing data:", e$message, "\n")
+      return(NULL)
+    }
+  )
 }
 
 #-------------------------------------------------------------------------------
@@ -76,7 +79,6 @@ import_and_preprocess_data <- function(config_list, data_directory, timezone) {
 #' tag deployment and no detection thereafter.
 #' @return Filtered detection dataframe.
 filter_detections_by_tag_and_tag_deployment <- function(config_list, det, ind, filter_24h = FALSE) {
-
   # Check and convert data types if necessary
   if (is.character(det$elasmo) && is.numeric(ind$acoustic_tag_id)) {
     det$elasmo <- as.numeric(det$elasmo)
@@ -133,14 +135,14 @@ filter_detections_by_tag_and_tag_deployment <- function(config_list, det, ind, f
 #' @param vmov Receiver movement dataframe.
 #' @return Detection dataframe with assigned locations.
 assign_locations_to_detections <- function(config_list, det, vmov) {
-  suppressWarnings( #suppressWarnings() suppresses false alarm warnings originating from
-    #the many duplicates that are created by the left_join(), which are
-    #dealt with using the filter()
+  suppressWarnings( # suppressWarnings() suppresses false alarm warnings originating from
+    # the many duplicates that are created by the left_join(), which are
+    # dealt with using the filter()
     det %>%
       left_join(
         vmov %>%
           select(station, location, date_in, date_out),
-          by = "station"
+        by = "station"
       )
   ) %>%
     filter(time >= date_in, time <= date_out) %>%
@@ -157,31 +159,34 @@ assign_locations_to_detections <- function(config_list, det, vmov) {
 #' @param filter_24h Boolean to indicate if first 24 hours should be filtered out.
 #' @return Compiled and filtered detection dataframe.
 compile_data <- function(config_list, data_directory, timezone, filter_24h = FALSE) {
-  tryCatch({
-    # Import and preprocess data
-    data <- import_and_preprocess_data(config_list, data_directory, timezone)
+  tryCatch(
+    {
+      # Import and preprocess data
+      data <- import_and_preprocess_data(config_list, data_directory, timezone)
 
-    if (is.null(data)) {
-      stop("Data import and preprocessing failed.")
+      if (is.null(data)) {
+        stop("Data import and preprocessing failed.")
+      }
+
+      # Filter detections by tag deployment
+      filtered_det <- filter_detections_by_tag_and_tag_deployment(config_list, data$det, data$ind, filter_24h)
+
+      # Assign locations to detections
+      compiled_det <- assign_locations_to_detections(config_list, filtered_det, data$vmov)
+
+      # Remove detections without assigned locations
+      compiled_det <- compiled_det %>% filter(!is.na(location))
+
+      # Save compiled data
+      saveRDS(compiled_det, file.path(data_directory, "det_compiled.rds"))
+
+      return(compiled_det)
+    },
+    error = function(e) {
+      cat("Error in compile_data:", e$message, "\n")
+      return(NULL)
     }
-
-    # Filter detections by tag deployment
-    filtered_det <- filter_detections_by_tag_and_tag_deployment(config_list, data$det, data$ind, filter_24h)
-
-    # Assign locations to detections
-    compiled_det <- assign_locations_to_detections(config_list, filtered_det, data$vmov)
-
-    # Remove detections without assigned locations
-    compiled_det <- compiled_det %>% filter(!is.na(location))
-
-    # Save compiled data
-    saveRDS(compiled_det, file.path(data_directory, "det_compiled.rds"))
-
-    return(compiled_det)
-  }, error = function(e) {
-    cat("Error in compile_data:", e$message, "\n")
-    return(NULL)
-  })
+  )
 }
 
 #-------------------------------------------------------------------------------
@@ -191,14 +196,18 @@ compile_data <- function(config_list, data_directory, timezone, filter_24h = FAL
 #' preprocesses, filters, assigns locations to detections, and saves compiled results.
 #' @param config_list List containing configuration parameters.
 #' @return None. The function saves processed data to RDS files as a side effect.
-process_all_data <- function(config_list){
-  tryCatch({
-    # Run the compile function
-    compiled_data <- compile_data(config_list,
-                 data_directory = config_list$data_directory,
-                 timezone = config_list$data_timezone,
-                 filter_24h = TRUE)
-  }, error = function(e) {
-    stop("Data compilation failed: ", e$message)
-  })
+process_all_data <- function(config_list) {
+  tryCatch(
+    {
+      # Run the compile function
+      compiled_data <- compile_data(config_list,
+        data_directory = config_list$data_directory,
+        timezone = config_list$data_timezone,
+        filter_24h = TRUE
+      )
+    },
+    error = function(e) {
+      stop("Data compilation failed: ", e$message)
+    }
+  )
 }
