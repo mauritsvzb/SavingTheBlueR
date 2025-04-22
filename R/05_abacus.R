@@ -66,61 +66,63 @@
 #' @param filter_species (Optional) Species to filter for e.g., "Carcharhinus perezii" (Default: NULL)
 #' @return A data frame containing the prepared data, or NULL if an error occurs.
 load_and_prepare_data <- function(config_list, exclude_site = NULL, filter_species = NULL) {
-  tryCatch({
-    # Load data
-    det_cleaned <- readRDS(file.path(config_list$data_directory, "det_cleaned.rds"))
-    ind <- readRDS(file.path(config_list$data_directory, "ind.rds"))
-    vloc <- readRDS(file.path(config_list$data_directory, "vloc.rds"))
+  tryCatch(
+    {
+      # Load data
+      det_cleaned <- readRDS(file.path(config_list$data_directory, "det_cleaned.rds"))
+      ind <- readRDS(file.path(config_list$data_directory, "ind.rds"))
+      vloc <- readRDS(file.path(config_list$data_directory, "vloc.rds"))
 
-    # Data cleaning and transformation
-    df <- det_cleaned %>%
-      arrange(time) %>%
-      mutate(elasmo = as.numeric(elasmo))
+      # Data cleaning and transformation
+      df <- det_cleaned %>%
+        arrange(time) %>%
+        mutate(elasmo = as.numeric(elasmo))
 
-    colnames(ind)[1] <- "elasmo"
-    ind <- ind %>%
-      mutate(elasmo = as.numeric(elasmo))
-
-    # Exclude specified site(s) if provided in config_list
-    if (!is.null(exclude_site)) {
+      colnames(ind)[1] <- "elasmo"
       ind <- ind %>%
-        filter(!site %in% exclude_site)
+        mutate(elasmo = as.numeric(elasmo))
+
+      # Exclude specified site(s) if provided in config_list
+      if (!is.null(exclude_site)) {
+        ind <- ind %>%
+          filter(!site %in% exclude_site)
+      }
+
+      df1 <- df %>%
+        inner_join(ind, by = "elasmo")
+
+      df2 <- df1 %>%
+        left_join(vloc, by = "location") %>%
+        rename(agency = agency.x) %>%
+        select(
+          time,
+          station,
+          elasmo,
+          agency,
+          location,
+          tagging_datetime,
+          species,
+          sex,
+          pcl,
+          fl,
+          tl,
+          stl,
+          latitude,
+          longitude
+        )
+
+      # Filter by species if specified in config_list
+      if (!is.null(filter_species)) {
+        df2 <- filter(df2, species == filter_species)
+      }
+
+      return(df2)
+    },
+    error = function(e) {
+      message("Error loading or preparing data: ", e$message)
+      return(NULL)
     }
-
-    df1 <- df %>%
-      inner_join(ind, by = "elasmo")
-
-    df2 <- df1 %>%
-      left_join(vloc, by = "location") %>%
-      rename(agency = agency.x) %>%
-      select(
-        time,
-        station,
-        elasmo,
-        agency,
-        location,
-        tagging_datetime,
-        species,
-        sex,
-        pcl,
-        fl,
-        tl,
-        stl,
-        latitude,
-        longitude
-      )
-
-    # Filter by species if specified in config_list
-    if (!is.null(filter_species)) {
-      df2 <- filter(df2, species == filter_species)
-    }
-
-    return(df2)
-
-  }, error = function(e) {
-    message("Error loading or preparing data: ", e$message)
-    return(NULL)
-  })
+  )
 }
 
 #-------------------------------------------------------------------------------
@@ -131,32 +133,34 @@ load_and_prepare_data <- function(config_list, exclude_site = NULL, filter_speci
 #' @param df Data frame to filter.
 #' @return Filtered data frame, or NULL if an error occurs.
 filter_by_time_window <- function(config_list, df, timezone) {
-  tryCatch({
-    # Check if start_time and end_time are in config_list
-    if (is.null(config_list$start_time) || is.null(config_list$end_time)) {
-      message("start_time and/or end_time not specified in config; returning full dataset.")
-      return(df)  # Return original data if time window not specified
+  tryCatch(
+    {
+      # Check if start_time and end_time are in config_list
+      if (is.null(config_list$start_time) || is.null(config_list$end_time)) {
+        message("start_time and/or end_time not specified in config; returning full dataset.")
+        return(df) # Return original data if time window not specified
+      }
+
+      # Convert start and end times to POSIXct with correct time zone
+      start_time <- as.POSIXct(config_list$start_time, tz = timezone)
+      end_time <- as.POSIXct(config_list$end_time, tz = timezone)
+
+      # Check if start_time and end_time are valid POSIXct objects
+      if (is.na(start_time) || is.na(end_time)) {
+        stop("Invalid start_time or end_time format in config.")
+      }
+
+      # Filter data by time window
+      filtered_df <- df %>%
+        filter(time >= start_time & time <= end_time)
+
+      return(filtered_df)
+    },
+    error = function(e) {
+      message("Error filtering by time window: ", e$message)
+      return(NULL)
     }
-
-    # Convert start and end times to POSIXct with correct time zone
-    start_time <- as.POSIXct(config_list$start_time, tz = timezone)
-    end_time <- as.POSIXct(config_list$end_time, tz = timezone)
-
-    # Check if start_time and end_time are valid POSIXct objects
-    if (is.na(start_time) || is.na(end_time)) {
-      stop("Invalid start_time or end_time format in config.")
-    }
-
-    # Filter data by time window
-    filtered_df <- df %>%
-      filter(time >= start_time & time <= end_time)
-
-    return(filtered_df)
-
-  }, error = function(e) {
-    message("Error filtering by time window: ", e$message)
-    return(NULL)
-  })
+  )
 }
 
 #-------------------------------------------------------------------------------
@@ -167,36 +171,38 @@ filter_by_time_window <- function(config_list, df, timezone) {
 #' @param df Data frame containing the detection data.
 #' @return A list containing the time sequence and the data frame with added bin information.
 calculate_time_bins <- function(config_list, df, timezone) {
-  tryCatch({
-    # Calculate time range
-    min.time <- min(df$time)
-    min.time <- format(min.time, "%Y-%m-%d", tz = config_list$dat.TZ)
-    min.time <- as.POSIXct(min.time, "%Y-%m-%d", tz = config_list$dat.TZ)
+  tryCatch(
+    {
+      # Calculate time range
+      min.time <- min(df$time)
+      min.time <- format(min.time, "%Y-%m-%d", tz = config_list$dat.TZ)
+      min.time <- as.POSIXct(min.time, "%Y-%m-%d", tz = config_list$dat.TZ)
 
-    max.time <- max(df$time)
-    max.time <- format(max.time, "%Y-%m-%d", tz = config_list$dat.TZ)
-    max.time <- as.POSIXct(max.time, "%Y-%m-%d", tz = config_list$dat.TZ)
+      max.time <- max(df$time)
+      max.time <- format(max.time, "%Y-%m-%d", tz = config_list$dat.TZ)
+      max.time <- as.POSIXct(max.time, "%Y-%m-%d", tz = config_list$dat.TZ)
 
-    # Create time sequence
-    time.int <- difftime(max.time, min.time - (3600 * 24 * 30), units = config_list$timeint)
-    lo <- ceiling(as.numeric(time.int)) / config_list$time
-    timeseq <- seq(
-      from = min.time - (3600 * 24),
-      length.out = (lo + (0.4 * lo)),
-      by = paste(config_list$time, config_list$timeint, sep = " ")
-    )
-    timeseq <- as.POSIXct(format(timeseq, "%Y-%m-%d"), tz = timezone) # Convert to date-only POSIXct
+      # Create time sequence
+      time.int <- difftime(max.time, min.time - (3600 * 24 * 30), units = config_list$timeint)
+      lo <- ceiling(as.numeric(time.int)) / config_list$time
+      timeseq <- seq(
+        from = min.time - (3600 * 24),
+        length.out = (lo + (0.4 * lo)),
+        by = paste(config_list$time, config_list$timeint, sep = " ")
+      )
+      timeseq <- as.POSIXct(format(timeseq, "%Y-%m-%d"), tz = timezone) # Convert to date-only POSIXct
 
-    # Assign time bins to detections
-    df <- df %>%
-      mutate(bin = as.factor(findInterval(time, timeseq)))
+      # Assign time bins to detections
+      df <- df %>%
+        mutate(bin = as.factor(findInterval(time, timeseq)))
 
-    return(list(timeseq = timeseq, df = df))
-
-  }, error = function(e) {
-    message("Error calculating time bins: ", e$message)
-    return(NULL)
-  })
+      return(list(timeseq = timeseq, df = df))
+    },
+    error = function(e) {
+      message("Error calculating time bins: ", e$message)
+      return(NULL)
+    }
+  )
 }
 
 #-------------------------------------------------------------------------------
@@ -217,7 +223,7 @@ group_agencies_by_country <- function(df) {
         agency %in% c("NOAA (VA)", "TNC (VA)") ~ "VA, USA",
         agency %in% c("INSPIRE Env. (MA)", "New England Aq. (MA)") ~ "MA, USA",
         agency %in% c("Monmouth Uni (NJ)") ~ "NJ, USA",
-        TRUE ~ NA_character_  # For any unmatched cases
+        TRUE ~ NA_character_ # For any unmatched cases
       )
     ) %>%
     arrange(
@@ -235,79 +241,88 @@ group_agencies_by_country <- function(df) {
 #' @param df Data frame containing detection data.
 #' @return The data frame with added 'tagging_date_color' (color) and 'tagging_date_symbol' (shape) columns.
 map_agency_colors_and_country_shapes <- function(config_list, df, color_palette = NULL, shapes = NULL) {
-  tryCatch({
-    # Get unique agencies and countries
-    agencies <- df %>% pull(agency) %>% unique()
-    countries <- df %>% pull(country) %>% unique()
+  tryCatch(
+    {
+      # Get unique agencies and countries
+      agencies <- df %>%
+        pull(agency) %>%
+        unique()
+      countries <- df %>%
+        pull(country) %>%
+        unique()
 
-    # Ensure color palette and shapes are sufficient
-    if (length(config_list$color_palette) < length(agencies)) {
-      stop(paste0(
-        "Color palette in config_list is too short for the number of agencies. ",
-        "Please specify at least ", length(agencies), " colors."
-      ))
-    }
-    if (length(config_list$shapes) < length(countries)) {
-      stop(paste0(
-        "Shapes vector in config_list is too short for the number of countries. ",
-        "Please specify at least ", length(countries), " shapes."
-      ))
-    }
+      # Ensure color palette and shapes are sufficient
+      if (length(config_list$color_palette) < length(agencies)) {
+        stop(paste0(
+          "Color palette in config_list is too short for the number of agencies. ",
+          "Please specify at least ", length(agencies), " colors."
+        ))
+      }
+      if (length(config_list$shapes) < length(countries)) {
+        stop(paste0(
+          "Shapes vector in config_list is too short for the number of countries. ",
+          "Please specify at least ", length(countries), " shapes."
+        ))
+      }
 
-    # Generate colors if not provided
-    if (is.null(color_palette)) {
-      color_palette <- viridis(n = length(agencies), option = "viridis")
-    } else
+      # Generate colors if not provided
+      if (is.null(color_palette)) {
+        color_palette <- viridis(n = length(agencies), option = "viridis")
+      } else
       # Assign black to STB if present
       if ("STB (BAH)" %in% agencies) {
         stb_index <- which(agencies == "STB (BAH)")
         color_palette[stb_index] <- "#000000"
       }
 
-    # Generate shapes if not provided
-    if (is.null(shapes)) {
-      shapes <- 15:(14 + length(countries))
-    } else
-      if ("Bahamas" %in% countries) {
+      # Generate shapes if not provided
+      if (is.null(shapes)) {
+        shapes <- 15:(14 + length(countries))
+      } else if ("Bahamas" %in% countries) {
         bahamas_index <- which(countries == "Bahamas")
 
         # If shape 16 is already used, find its index
         existing_16_index <- which(shapes == 16)
 
         if (length(existing_16_index) > 0 &&
-            existing_16_index != bahamas_index) {
+          existing_16_index != bahamas_index) {
           # Assign the next available shape to the country that had 16
           available_shapes <- setdiff(15:25, shapes)
-          shapes[existing_16_index] <- if (length(available_shapes) > 0)
+          shapes[existing_16_index] <- if (length(available_shapes) > 0) {
             min(available_shapes)
-          else
+          } else {
             26
+          }
         }
 
         # Assign shape 16 to Bahamas
         shapes[bahamas_index] <- 16
       }
 
-    # Create mappings
-    color_mapping <- tibble(
-      agency = agencies,
-      data_point_color = color_palette[1:length(agencies)]
+      # Create mappings
+      color_mapping <- tibble(
+        agency = agencies,
+        data_point_color = color_palette[1:length(agencies)]
       )
 
-    shape_mapping <- tibble(
-      country = countries,
-      data_point_shape = shapes[1:length(countries)]
+      shape_mapping <- tibble(
+        country = countries,
+        data_point_shape = shapes[1:length(countries)]
       )
 
-    # Merge with dataframe
-    df %>%
-      left_join(color_mapping, by = "agency") %>%
-      left_join(shape_mapping, by = "country")
-  }, error = function(e) {
-    message("Error in map_agency_colors_and_country_shapes: ",
-            e$message)
-    return(NULL)
-  })
+      # Merge with dataframe
+      df %>%
+        left_join(color_mapping, by = "agency") %>%
+        left_join(shape_mapping, by = "country")
+    },
+    error = function(e) {
+      message(
+        "Error in map_agency_colors_and_country_shapes: ",
+        e$message
+      )
+      return(NULL)
+    }
+  )
 }
 
 #-------------------------------------------------------------------------------
@@ -320,64 +335,67 @@ map_agency_colors_and_country_shapes <- function(config_list, df, color_palette 
 #' @param timezone The timezone for the data.
 #' @return A data frame containing tagging data with date and aesthetics for plotting.
 process_tagging_data <- function(config_list, df, timeseq, timezone) {
-  tryCatch({
-    # Create indice column
-    taglist <- unique(df$elasmo)
-    df <- df %>%
-      mutate(indice = match(elasmo, taglist))
+  tryCatch(
+    {
+      # Create indice column
+      taglist <- unique(df$elasmo)
+      df <- df %>%
+        mutate(indice = match(elasmo, taglist))
 
-    # Create date column
-    time_num <- seq_along(timeseq)
-    date_df <- data.frame(bin = time_num, date = timeseq)
+      # Create date column
+      time_num <- seq_along(timeseq)
+      date_df <- data.frame(bin = time_num, date = timeseq)
 
-    df <- df %>%
-      mutate(bin = as.integer(as.character(bin))) %>%
-      left_join(date_df, by = "bin") %>%
-      mutate(bin = as.factor(bin))
+      df <- df %>%
+        mutate(bin = as.integer(as.character(bin))) %>%
+        left_join(date_df, by = "bin") %>%
+        mutate(bin = as.factor(bin))
 
-    # Prepare tagging data
-    ind <- readRDS(file.path(config_list$data_directory, "ind.rds"))
-    tag.up <- ind %>%
-      rename(elasmo = acoustic_tag_id) %>%
-      filter(elasmo %in% df$elasmo) %>%
-      select(elasmo, species, sex, stl, tagging_datetime) %>%
-      arrange(species, elasmo)
+      # Prepare tagging data
+      ind <- readRDS(file.path(config_list$data_directory, "ind.rds"))
+      tag.up <- ind %>%
+        rename(elasmo = acoustic_tag_id) %>%
+        filter(elasmo %in% df$elasmo) %>%
+        select(elasmo, species, sex, stl, tagging_datetime) %>%
+        arrange(species, elasmo)
 
-    # Create temporary data frame
-    temp <- data.frame(matrix(nrow = nrow(tag.up), ncol = ncol(df), NA))
-    names(temp) <- names(df)
+      # Create temporary data frame
+      temp <- data.frame(matrix(nrow = nrow(tag.up), ncol = ncol(df), NA))
+      names(temp) <- names(df)
 
-    # Populate with relevant tagging information
-    temp[, "elasmo"] <- tag.up$elasmo
-    temp[, "sex"] <- tag.up$sex
-    temp[, "stl"] <- tag.up$stl
-    temp[, "tagging_datetime"] <- tag.up$tagging_datetime
-    temp[, "species"] <- tag.up$species
-    temp[, "tagging_date_color"] <- config_list$tagging_date_color
-    temp[, "tagging_date_symbol"] <- config_list$tagging_date_symbol
+      # Populate with relevant tagging information
+      temp[, "elasmo"] <- tag.up$elasmo
+      temp[, "sex"] <- tag.up$sex
+      temp[, "stl"] <- tag.up$stl
+      temp[, "tagging_datetime"] <- tag.up$tagging_datetime
+      temp[, "species"] <- tag.up$species
+      temp[, "tagging_date_color"] <- config_list$tagging_date_color
+      temp[, "tagging_date_symbol"] <- config_list$tagging_date_symbol
 
-    # Transform tagging date to the same scale as the abacus plot i.e. to appropriate time interval bins
-    date.t <- sapply(temp$tagging_datetime, function(tagging_date) {
-      format(
-        max(
-          timeseq[which(timeseq <= tagging_date)]
-        ),
-        "%Y-%m-%d %H:%M:%S")
-    })
+      # Transform tagging date to the same scale as the abacus plot i.e. to appropriate time interval bins
+      date.t <- sapply(temp$tagging_datetime, function(tagging_date) {
+        format(
+          max(
+            timeseq[which(timeseq <= tagging_date)]
+          ),
+          "%Y-%m-%d %H:%M:%S"
+        )
+      })
 
-    # replace original tagging date
-    temp$date <- as.POSIXct(date.t,"%Y-%m-%d %H:%M:%S", tz = timezone)
+      # replace original tagging date
+      temp$date <- as.POSIXct(date.t, "%Y-%m-%d %H:%M:%S", tz = timezone)
 
-    # tag id order inherited from tag.up
-    temp <- temp %>%
-      mutate(indice = match(elasmo, taglist))
+      # tag id order inherited from tag.up
+      temp <- temp %>%
+        mutate(indice = match(elasmo, taglist))
 
-    return(list(df = df, temp = temp))
-
-  }, error = function(e) {
-    message("Error processing tagging data: ", e$message)
-    return(NULL)
-  })
+      return(list(df = df, temp = temp))
+    },
+    error = function(e) {
+      message("Error processing tagging data: ", e$message)
+      return(NULL)
+    }
+  )
 }
 
 #-------------------------------------------------------------------------------
@@ -393,101 +411,111 @@ process_tagging_data <- function(config_list, df, timeseq, timezone) {
 #' @param include_legend Whether to include a legend in the plot
 #' @param xlim_months_left Integer. Number of months to extend the x-axis to the left of the earliest date (default: 0).
 abacus_plot <- function(config_list, df, temp, taglist, timezone, include_species_labels = TRUE, include_legend = TRUE, xlim_months_left = 0) {
-  tryCatch({
-    # Open TIFF file for output
-    tiff(
-      filename = file.path(config_list$output_directory, config_list$output_filename),
-      width = config_list$image_width,
-      height = config_list$image_height,
-      units = "mm",
-      res = config_list$plot_resolution
-    )
-
-    # Set plot margins and clipping
-    par(mar = c(5.1, 13, 4.1, 3), xpd = T)
-
-    # Create the plot
-    plot(
-      df$date, df$indice,
-      xlim = c((min(df$date) - months(xlim_months_left)), max(df$date)),
-      cex = rep(config_list$default_point_size, length(df$indice)),
-      col = as.character(df$data_point_color),
-      pch = df$data_point_shape,
-      yaxt = "n", xaxt = "n", ann = F
-    )
-
-    # Draw horizontal segments for each tag ID
-    # Get the plot region coordinates
-    usr <- par("usr")
-    left_border <- usr[1]
-    right_border <- usr[2]
-    for (y in 1:length(unique(df$elasmo))) {
-      segments(left_border, y, right_border, y, lty = 3, col = "grey", lwd = .7)
-    }
-
-    # Set vertical axes labels: Tag IDs, Sex, and STL
-    # tag.up <- temp %>%
-    #   select(elasmo, sex, stl) %>%
-    #   distinct() %>%
-    #   arrange(elasmo)
-
-    axis(side = 2, at = seq(1, length(taglist), 1),
-         labels = taglist, cex.axis = config_list$vertical_axis_label_cex, las = 2) # sets the primary y-axis label, tag IDs
-    axis(side = 2, line = 2.0, at = 1:length(taglist), labels = temp$sex, las = 2, cex.axis = config_list$vertical_axis_label_cex, tick = F) # sets secondary y-axis label: Sex
-    axis(side = 2, line = 3.0, at = 1:length(taglist), labels = temp$stl, las = 2, cex.axis = config_list$vertical_axis_label_cex, tick = F) # sets tertiary y-axis label: STL
-
-    # Conditional hierarchical labeling to show species groups
-    if(include_species_labels) {
-      # Inventorize species contained in data set
-      unique_species <- unique(temp$species)
-
-      # Create a vector of positions for each unique species
-      species_positions <- tapply(1:length(temp$species), temp$species, min)
-
-      # Add the labels
-      mtext(side = 2, text = unique_species,
-            at = species_positions,
-            line = config_list$species_label_line, las = 2, cex = 0.8)
-    }
-
-    # Set horizontal axes labels: Months and Years
-    # Calculate the first day of the month following the minimum date
-    first_of_next_month <- ceiling_date(min(df$date), "month")
-
-    axis.POSIXct(1,at = seq(first_of_next_month, max(df$date), by = "month"), format = "%b",
-                 las = 2, cex.axis = 0.7) # sets primary x axis label, months
-    axis.POSIXct(1, line = 1.2, at = seq(as.POSIXct("2011-01-01 00:00:00", tz = timezone),max(df$date), by = "year"), format = "%Y",
-                 las = 0, cex.axis = 0.7, tick = F) # sets secondary x axis label: year
-
-    # Add Tagging Dates
-    points(temp$date, temp$indice, col = temp$tagging_date_color, pch = temp$tagging_date_symbol)
-
-    # Add legend conditionally
-    if(include_legend){
-      tpch <- df %>%
-        select(agency, country, data_point_color, data_point_shape) %>%
-        distinct() %>%
-        arrange(country)
-
-      legend(
-        "topleft",
-        inset = config_list$legend_inset,
-        legend = tpch$agency,
-        pch = tpch$data_point_shape,
-        col = as.character(tpch$data_point_color),
-        cex = config_list$legend_text_cex,
-        text.width = max(strwidth(tpch$agency, units = "user", cex = 0.8)),
-        y.intersp = 0.9, # Adjust this value to control vertical spacing
-        bty = config_list$legend_box
+  tryCatch(
+    {
+      # Open TIFF file for output
+      tiff(
+        filename = file.path(config_list$output_directory, config_list$output_filename),
+        width = config_list$image_width,
+        height = config_list$image_height,
+        units = "mm",
+        res = config_list$plot_resolution
       )
+
+      # Set plot margins and clipping
+      par(mar = c(5.1, 13, 4.1, 3), xpd = T)
+
+      # Create the plot
+      plot(
+        df$date, df$indice,
+        xlim = c((min(df$date) - months(xlim_months_left)), max(df$date)),
+        cex = rep(config_list$default_point_size, length(df$indice)),
+        col = as.character(df$data_point_color),
+        pch = df$data_point_shape,
+        yaxt = "n", xaxt = "n", ann = F
+      )
+
+      # Draw horizontal segments for each tag ID
+      # Get the plot region coordinates
+      usr <- par("usr")
+      left_border <- usr[1]
+      right_border <- usr[2]
+      for (y in 1:length(unique(df$elasmo))) {
+        segments(left_border, y, right_border, y, lty = 3, col = "grey", lwd = .7)
+      }
+
+      # Set vertical axes labels: Tag IDs, Sex, and STL
+      # tag.up <- temp %>%
+      #   select(elasmo, sex, stl) %>%
+      #   distinct() %>%
+      #   arrange(elasmo)
+
+      axis(
+        side = 2, at = seq(1, length(taglist), 1),
+        labels = taglist, cex.axis = config_list$vertical_axis_label_cex, las = 2
+      ) # sets the primary y-axis label, tag IDs
+      axis(side = 2, line = 2.0, at = 1:length(taglist), labels = temp$sex, las = 2, cex.axis = config_list$vertical_axis_label_cex, tick = F) # sets secondary y-axis label: Sex
+      axis(side = 2, line = 3.0, at = 1:length(taglist), labels = temp$stl, las = 2, cex.axis = config_list$vertical_axis_label_cex, tick = F) # sets tertiary y-axis label: STL
+
+      # Conditional hierarchical labeling to show species groups
+      if (include_species_labels) {
+        # Inventorize species contained in data set
+        unique_species <- unique(temp$species)
+
+        # Create a vector of positions for each unique species
+        species_positions <- tapply(1:length(temp$species), temp$species, min)
+
+        # Add the labels
+        mtext(
+          side = 2, text = unique_species,
+          at = species_positions,
+          line = config_list$species_label_line, las = 2, cex = 0.8
+        )
+      }
+
+      # Set horizontal axes labels: Months and Years
+      # Calculate the first day of the month following the minimum date
+      first_of_next_month <- ceiling_date(min(df$date), "month")
+
+      axis.POSIXct(1,
+        at = seq(first_of_next_month, max(df$date), by = "month"), format = "%b",
+        las = 2, cex.axis = 0.7
+      ) # sets primary x axis label, months
+      axis.POSIXct(1,
+        line = 1.2, at = seq(as.POSIXct("2011-01-01 00:00:00", tz = timezone), max(df$date), by = "year"), format = "%Y",
+        las = 0, cex.axis = 0.7, tick = F
+      ) # sets secondary x axis label: year
+
+      # Add Tagging Dates
+      points(temp$date, temp$indice, col = temp$tagging_date_color, pch = temp$tagging_date_symbol)
+
+      # Add legend conditionally
+      if (include_legend) {
+        tpch <- df %>%
+          select(agency, country, data_point_color, data_point_shape) %>%
+          distinct() %>%
+          arrange(country)
+
+        legend(
+          "topleft",
+          inset = config_list$legend_inset,
+          legend = tpch$agency,
+          pch = tpch$data_point_shape,
+          col = as.character(tpch$data_point_color),
+          cex = config_list$legend_text_cex,
+          text.width = max(strwidth(tpch$agency, units = "user", cex = 0.8)),
+          y.intersp = 0.9, # Adjust this value to control vertical spacing
+          bty = config_list$legend_box
+        )
+      }
+
+      dev.off()
+    },
+    error = function(e) {
+      message("Error creating abacus plot: ", e$message)
+      return(NULL)
     }
-
-    dev.off()
-
-  }, error = function(e) {
-    message("Error creating abacus plot: ", e$message)
-    return(NULL)
-  })
+  )
 }
 
 #-------------------------------------------------------------------------------
@@ -558,7 +586,7 @@ abacus_plot <- function(config_list, df, temp, taglist, timezone, include_specie
 #'
 #' @param config_list List of configuration parameters.
 #' @return None.  Generates and saves a TIFF image of the abacus plot to the specified output directory.
-generate_abacus_plot = function(config_list){
+generate_abacus_plot <- function(config_list) {
   # Load and Prepare Data
   data <- load_and_prepare_data(
     config_list,
