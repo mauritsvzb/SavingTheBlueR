@@ -69,11 +69,14 @@
 #' enabling access to Google Drive files and folders.
 #' @return None. The function performs authentication as a side effect.
 authenticate_drive <- function() {
-  tryCatch({
-    drive_auth()
-  }, error = function(e) {
-    stop("Failed to authenticate with Google Drive: ", e$message)
-  })
+  tryCatch(
+    {
+      drive_auth()
+    },
+    error = function(e) {
+      stop("Failed to authenticate with Google Drive: ", e$message)
+    }
+  )
 }
 
 #-------------------------------------------------------------------------------
@@ -85,31 +88,33 @@ authenticate_drive <- function() {
 #' @param file_pattern Pattern to match the CSV files.
 #' @return A list of data frames containing the contents of the CSV files.
 import_data_from_google_drive <- function(config_list, folder_url, file_pattern) {
-  tryCatch({
-    # List all CSV files in the specified folder
-    csv_files <- drive_ls(path = folder_url, pattern = file_pattern, recursive = TRUE)
+  tryCatch(
+    {
+      # List all CSV files in the specified folder
+      csv_files <- drive_ls(path = folder_url, pattern = file_pattern, recursive = TRUE)
 
-    # Check if any files were found
-    if (nrow(csv_files) == 0) {
-      stop("No CSV files found matching the specified pattern in the Google Drive folder.")
+      # Check if any files were found
+      if (nrow(csv_files) == 0) {
+        stop("No CSV files found matching the specified pattern in the Google Drive folder.")
+      }
+
+      # Download and read all CSV files
+      data_frames <- purrr::map(csv_files$id, function(file_id) {
+        temp_file <- tempfile(fileext = ".csv")
+        drive_download(file = as_id(file_id), path = temp_file, overwrite = TRUE)
+
+        df <- read_csv(temp_file, col_types = cols(.default = "c"))
+
+        unlink(temp_file)
+        return(df)
+      })
+      return(data_frames)
+    },
+    error = function(e) {
+      cat("Error importing data from Google Drive:", e$message, "\n")
+      return(NULL)
     }
-
-    # Download and read all CSV files
-    data_frames <- purrr::map(csv_files$id, function(file_id) {
-      temp_file <- tempfile(fileext = ".csv")
-      drive_download(file = as_id(file_id), path = temp_file, overwrite = TRUE)
-
-      df <- read_csv(temp_file, col_types = cols(.default = "c"))
-
-      unlink(temp_file)
-      return(df)
-    })
-    return(data_frames)
-
-  }, error = function(e) {
-    cat("Error importing data from Google Drive:", e$message, "\n")
-    return(NULL)
-  })
+  )
 }
 
 #-------------------------------------------------------------------------------
@@ -127,7 +132,6 @@ import_data_from_google_drive <- function(config_list, folder_url, file_pattern)
 #' @return A data frame containing the combined and mapped orphan detections.
 import_orphan_data <- function(config_list, folder_url, file_pattern, poc_mapping,
                                timezone, excluded_locations = NULL) {
-
   # Input validation: Check if excluded_locations is a character vector
   if (!is.null(excluded_locations) && !is.character(excluded_locations)) {
     stop("excluded_locations must be a character vector or NULL.")
@@ -167,12 +171,18 @@ import_orphan_data <- function(config_list, folder_url, file_pattern, poc_mappin
       mutate(
         time = as.POSIXct(time, format = "%Y-%m-%d %H:%M", tz = "UTC") %>%
           lubridate::with_tz(timezone), # Convert UTC to local timezone
-        location = str_replace_all(location,
-                                   c("BUOY" = "buoy",
-                                     "buoyBACKREEF" = "Buoybackreef")), # Consistency
-        elasmo = str_replace(elasmo,
-                             "A69-(9001|9006|1602|9002|1601|1303)-",
-                             ""), # Remove tag prefixes
+        location = str_replace_all(
+          location,
+          c(
+            "BUOY" = "buoy",
+            "buoyBACKREEF" = "Buoybackreef"
+          )
+        ), # Consistency
+        elasmo = str_replace(
+          elasmo,
+          "A69-(9001|9006|1602|9002|1601|1303)-",
+          ""
+        ), # Remove tag prefixes
         agency = case_when( # Agency from contact point
           contact_poc %in% names(poc_mapping) ~ poc_mapping[contact_poc],
           TRUE ~ "" # Default if unknown
@@ -184,7 +194,9 @@ import_orphan_data <- function(config_list, folder_url, file_pattern, poc_mappin
         agency != "" # Remove detections without assigned agency
       ) %>%
       # Conditionally filter out excluded locations
-      {if (!is.null(excluded_locations)) filter(., !location %in% excluded_locations) else .} %>%
+      {
+        if (!is.null(excluded_locations)) filter(., !location %in% excluded_locations) else .
+      } %>%
       select(-contact_poc) %>% # Remove contact point column
       distinct() # Remove duplicates
   }) %>%
@@ -207,7 +219,6 @@ import_orphan_data <- function(config_list, folder_url, file_pattern, poc_mappin
 #'   orphan detections.
 import_orphan_data_private <- function(config_list, folder_url, file_pattern, poc_mapping,
                                        timezone, excluded_locations = NULL) {
-
   # Input validation: Check if excluded_locations is a character vector
   if (!is.null(excluded_locations) && !is.character(excluded_locations)) {
     stop("excluded_locations must be a character vector or NULL.")
@@ -245,19 +256,23 @@ import_orphan_data_private <- function(config_list, folder_url, file_pattern, po
         time = as.POSIXct(time, format = "%d/%m/%y %H:%M", tz = "UTC"),
         time = with_tz(time, timezone), # Convert UTC to local timezone
         station = str_replace(station, "VR2AR-", ""),
-        elasmo = str_replace(elasmo,
-                             "A69-9001-|A69-9006-|A69-1602-|A69-9002-|A69-1601-|A69-1303-",
-                             ""),
+        elasmo = str_replace(
+          elasmo,
+          "A69-9001-|A69-9006-|A69-1602-|A69-9002-|A69-1601-|A69-1303-",
+          ""
+        ),
         sensor_value = NA,
         sensor_unit = NA,
         agency = case_when( # Match point of contact to right agency
           contact_poc %in% names(poc_mapping) ~ poc_mapping[contact_poc],
-          TRUE ~ "" #default value if not in the mapping
+          TRUE ~ "" # default value if not in the mapping
         )
       ) %>%
       # Conditionally filter out excluded locations
-      {if (!is.null(excluded_locations)) filter(., !location %in% excluded_locations) else .} %>%
-      select( #change order to match the previous
+      {
+        if (!is.null(excluded_locations)) filter(., !location %in% excluded_locations) else .
+      } %>%
+      select( # change order to match the previous
         time,
         station,
         elasmo,
@@ -269,7 +284,7 @@ import_orphan_data_private <- function(config_list, folder_url, file_pattern, po
         agency,
         -contact_poc # Remove the contact_poc column
       ) %>%
-      distinct() #ensures any duplicates are filtered out
+      distinct() # ensures any duplicates are filtered out
   }) %>%
     bind_rows() # Combine all data frames
 }
@@ -338,7 +353,7 @@ update_receiver_attributes <- function(rec_attr, orph) {
 #' @return None. The function saves processed data to RDS files as a side effect.
 process_all_data <- function(config_list) {
   # Load Data
-  loaded_data <- purrr::map(config_new$data_files, ~readRDS(file.path(config_new$data_directory, .x)))
+  loaded_data <- purrr::map(config_new$data_files, ~ readRDS(file.path(config_new$data_directory, .x)))
   rec_attr <- loaded_data$rec_attr
   andr_det <- loaded_data$andr_det
 
@@ -352,7 +367,7 @@ process_all_data <- function(config_list) {
     file_pattern = config_list$google_drive$file_pattern,
     poc_mapping = config_list$poc_mapping,
     timezone = config_list$data_timezone
-  ) #OTN Matched Detections
+  ) # OTN Matched Detections
 
   orph_priv <- import_orphan_data_private(
     config_list,
@@ -360,16 +375,16 @@ process_all_data <- function(config_list) {
     file_pattern = config_list$google_drive$file_pattern,
     poc_mapping = config_list$poc_mapping,
     timezone = config_list$data_timezone
-  ) #Privately Sent Orphan Detections
+  ) # Privately Sent Orphan Detections
 
   # Combine and Process Orphan Detections
   orph <- bind_rows(orph_otn, orph_priv)
-  orph$location <- str_replace_all(str_squish(str_to_lower(orph$location)), "\\s", "_") #Converts strings to lowercase, trim leading/trailing whitespace
+  orph$location <- str_replace_all(str_squish(str_to_lower(orph$location)), "\\s", "_") # Converts strings to lowercase, trim leading/trailing whitespace
   # and reduce multiple internal spaces to single spaces, replace all remaining spaces with underscores
-  orph <- correct_gps_coordinates(orph) #Correct inconsistent GPS coordinates
+  orph <- correct_gps_coordinates(orph) # Correct inconsistent GPS coordinates
   orph$elasmo <- as.numeric(orph$elasmo)
-  rec_attr <- update_receiver_attributes(rec_attr, orph) #Update receiver attributes
-  orph <- select(orph, -deploy_long, -deploy_lat) #Match the columns of orph to those of andr.det
+  rec_attr <- update_receiver_attributes(rec_attr, orph) # Update receiver attributes
+  orph <- select(orph, -deploy_long, -deploy_lat) # Match the columns of orph to those of andr.det
 
   # Merge All Detections
   det <- bind_rows(andr_det, orph)
@@ -381,8 +396,7 @@ process_all_data <- function(config_list) {
   )
 
   # Save data files using iwalk
-  purrr::iwalk(data_to_save, ~saveRDS(.x, file.path(config_list$data_directory, paste0(.y, ".rds"))))
+  purrr::iwalk(data_to_save, ~ saveRDS(.x, file.path(config_list$data_directory, paste0(.y, ".rds"))))
 
   cat("Script completed successfully.\n")
-
 }
