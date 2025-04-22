@@ -50,28 +50,28 @@ standardize_time <- function(x) {
 #' @return A standardized data frame with appropriate column types, NA values, time format, and reset row names
 standardize_and_convert <- function(df) {
   df %>%
-    as.data.frame() %>%  # Convert to standard dataframe
-    remove_rownames() %>%  # Remove existing row names
-    mutate(across(everything(), ~{
+    as.data.frame() %>% # Convert to standard dataframe
+    remove_rownames() %>% # Remove existing row names
+    mutate(across(everything(), ~ {
       if (is.character(.)) {
         ifelse(. %in% c("NA", "<NA>", ""), NA_character_, .)
       } else if (is.factor(.)) {
-        fct <- factor(., exclude = NULL)  # Ensure NA is a level
+        fct <- factor(., exclude = NULL) # Ensure NA is a level
         levels(fct)[levels(fct) %in% c("NA", "<NA>")] <- NA_character_
         fct
       } else {
         .
       }
     })) %>%
-    mutate(across(where(is.character), ~{
-      if(all(is.na(.) | grepl("^\\s*[-+]?[0-9]*\\.?[0-9]+\\s*$", ., perl = TRUE))) {
+    mutate(across(where(is.character), ~ {
+      if (all(is.na(.) | grepl("^\\s*[-+]?[0-9]*\\.?[0-9]+\\s*$", ., perl = TRUE))) {
         as.numeric(.)
       } else {
         .
       }
     })) %>%
-    mutate(across(everything(), standardize_time)) %>%  # Standardize time format
-    rownames_to_column("row_id")  # Add a standard row ID column
+    mutate(across(everything(), standardize_time)) %>% # Standardize time format
+    rownames_to_column("row_id") # Add a standard row ID column
 }
 
 #-------------------------------------------------------------------------------
@@ -116,13 +116,13 @@ compare_rds_files_diagnostic <- function(new_file_name, old_file_name, data_dir 
   diagnostics$attributes_equal <- all.equal(attributes(new_data), attributes(old_data))
 
   # Round numeric columns and compare
-  new_data_rounded <- new_data %>% mutate(across(where(is.numeric), ~round(., 6)))
-  old_data_rounded <- old_data %>% mutate(across(where(is.numeric), ~round(., 6)))
+  new_data_rounded <- new_data %>% mutate(across(where(is.numeric), ~ round(., 6)))
+  old_data_rounded <- old_data %>% mutate(across(where(is.numeric), ~ round(., 6)))
   diagnostics$identical_after_rounding <- identical(new_data_rounded, old_data_rounded)
 
   # Encode character columns and compare
-  new_data_encoded <- new_data %>% mutate(across(where(is.character), ~iconv(., to = "UTF-8")))
-  old_data_encoded <- old_data %>% mutate(across(where(is.character), ~iconv(., to = "UTF-8")))
+  new_data_encoded <- new_data %>% mutate(across(where(is.character), ~ iconv(., to = "UTF-8")))
+  old_data_encoded <- old_data %>% mutate(across(where(is.character), ~ iconv(., to = "UTF-8")))
   diagnostics$identical_after_encoding <- identical(new_data_encoded, old_data_encoded)
 
   # If still not identical, check for differences in individual columns
