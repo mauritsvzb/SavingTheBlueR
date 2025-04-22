@@ -123,7 +123,7 @@ generate_individual_summary <- function(config_list, filtered_data, ind_data, ti
     mutate(
       at_liberty = pmax(1, as.numeric(difftime(maxtime, tagging_datetime, units = "days"))),
       residency_index = nbrday / at_liberty,
-      across(c(mintime, maxtime, tagging_datetime), ~format(., "%Y-%m-%d %H:%M", tz = timezone))
+      across(c(mintime, maxtime, tagging_datetime), ~ format(., "%Y-%m-%d %H:%M", tz = timezone))
     ) %>%
     select(
       ID = acoustic_tag_id, Species = species, `Date tagged` = tagging_datetime,
@@ -132,7 +132,7 @@ generate_individual_summary <- function(config_list, filtered_data, ind_data, ti
       `First appearance` = mintime, `Last appearance` = maxtime,
       `Days at liberty` = at_liberty, `Residency Index` = residency_index
     ) %>%
-    mutate(across(where(is.numeric), ~round(., 2)))
+    mutate(across(where(is.numeric), ~ round(., 2)))
 }
 
 #-------------------------------------------------------------------------------
@@ -143,7 +143,9 @@ generate_individual_summary <- function(config_list, filtered_data, ind_data, ti
 #' @param group_by_agency Group by agency instead of location (TRUE/FALSE).
 #' @return Tibble with detection matrix.
 generate_detection_matrix <- function(filtered_data, group_by_agency = FALSE) {
-  if (nrow(filtered_data) == 0) return(tibble())
+  if (nrow(filtered_data) == 0) {
+    return(tibble())
+  }
 
   group_var <- if (group_by_agency) sym("agency") else sym("location")
 
@@ -190,11 +192,12 @@ datasummary <- function(config_list) {
   ind_data <- readRDS(file.path(config_list$data_directory, config_list$individual_attribute_file))
 
   # Create time intervals with both start and end dates.
-  time_data <- create_time_intervals(det_data = det_cleaned,
-                                     start_point = config_list$start.p,
-                                     end_point = config_list$end.p,
-                                     time_interval = config_list$timeint
-                                     )
+  time_data <- create_time_intervals(
+    det_data = det_cleaned,
+    start_point = config_list$start.p,
+    end_point = config_list$end.p,
+    time_interval = config_list$timeint
+  )
   timeseq <- time_data$timeseq
 
   # Save time interval metadata.
@@ -211,26 +214,29 @@ datasummary <- function(config_list) {
 
     # Generate and save individual summaries.
     individual_summary <- generate_individual_summary(config_list,
-                                                      filtered_data = interval_data,
-                                                      ind_data = ind_data,
-                                                      timezone = config_list$timezone,
-                                                      min_days_detected = config_list$min_days
-                                                      )
+      filtered_data = interval_data,
+      ind_data = ind_data,
+      timezone = config_list$timezone,
+      min_days_detected = config_list$min_days
+    )
 
-    save_analysis_outputs(object = individual_summary,
-                          save_path = config_list$output_directory,
-                          file_name = "summary", k
-                          )
+    save_analysis_outputs(
+      object = individual_summary,
+      save_path = config_list$output_directory,
+      file_name = "summary", k
+    )
 
     # Generate and save detection matrices.
-    detection_matrix <- generate_detection_matrix(filtered_data = interval_data,
-                                                  group_by_agency = config_list$agency
-                                                  )
+    detection_matrix <- generate_detection_matrix(
+      filtered_data = interval_data,
+      group_by_agency = config_list$agency
+    )
 
-    save_analysis_outputs(object = detection_matrix,
-                          save_path = config_list$output_directory,
-                          file_name = "matrix_ind_location", k
-                          )
+    save_analysis_outputs(
+      object = detection_matrix,
+      save_path = config_list$output_directory,
+      file_name = "matrix_ind_location", k
+    )
   })
 
   message("Analysis complete. Outputs saved to: ", config_list$output_directory)
