@@ -41,8 +41,10 @@ validate_detection_data <- function(det) {
   missing_cols <- setdiff(required_cols, names(det))
 
   if (length(missing_cols) > 0) {
-    stop("Input data missing required columns: ",
-         paste(missing_cols, collapse = ", "))
+    stop(
+      "Input data missing required columns: ",
+      paste(missing_cols, collapse = ", ")
+    )
   }
 
   if (!inherits(det$time, "POSIXct")) {
@@ -152,21 +154,27 @@ calculate_removal_stats <- function(original_count, cleaned_count) {
 #' @throws Error if data loading or processing fails
 process_all_data <- function(config_list) {
   # Load Data with error handling
-  tryCatch({
-    det <- readRDS(file.path(config_list$data_directory, config_list$input_file))
-  }, error = function(e) {
-    stop("Failed to load detection data: ", e$message)
-  })
+  tryCatch(
+    {
+      det <- readRDS(file.path(config_list$data_directory, config_list$input_file))
+    },
+    error = function(e) {
+      stop("Failed to load detection data: ", e$message)
+    }
+  )
 
   # Processing pipeline
-  processing_result <- tryCatch({
-    det %>%
-      flag_single_detections(time_window_hours = config_list$time_window_hours) %>%
-      remove_single_detections()
-  }, error = function(e) {
-    message("Processing failed: ", e$message)
-    return(NULL)
-  })
+  processing_result <- tryCatch(
+    {
+      det %>%
+        flag_single_detections(time_window_hours = config_list$time_window_hours) %>%
+        remove_single_detections()
+    },
+    error = function(e) {
+      message("Processing failed: ", e$message)
+      return(NULL)
+    }
+  )
 
   if (!is.null(processing_result)) {
     # Save results
