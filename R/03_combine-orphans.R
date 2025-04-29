@@ -31,17 +31,15 @@
 # config <- list(
 #   data_timezone = "US/Eastern",
 #   data_directory = here::here("data"),
-#   data_files = list(
-#     rec_attr = "vloc.rds",
-#     andr_det = "det_compiled.rds"
-#   ),
+#   data_files = list(rec_attr = "vloc.rds", andr_det = "det_compiled.rds"),
 #   # Define point of contact mapping
 #   poc_mapping = c(
 #     "Olivia Dixon (liv@beneaththewaves.org)" = "BTW (BAH)",
 #     "Joy Young (joy.young@myfwc.com)" = "FWC-TEQ (FL-Atl)",
 #     "Jeffery Merrell (jhmerrel@ncsu.edu)" = "NCSU (NC)",
 #     "Lucas Griffin (lucaspgriffin@gmail.com)" = "BTT (FL-Keys)",
-#     "Sue Lowerre-Barbieri" = "UF (FL-GOM)",
+#     "Sue Lowerre-Barbieri (GOM)" = "UF/FWC (FL-GOM)",
+#     "Sue Lowerre-Barbieri (FLK)" = "UF/FWC (FL-Keys)",
 #     "Michael Dance" = "LSU (LA)",
 #     "Kate Choate (kate.choate@noaa.gov)" = "NOAA (VA)",
 #     "Alejandro Acosta (alejandro.acosta@myfwc.com), Danielle Morley (danielle.morley@myfwc.com)" = "FWC (FL-Keys)",
@@ -50,7 +48,9 @@
 #     "Brendan Runde (brendan.runde@tnc.org)" = "TNC (VA)",
 #     "Brian Gervelis (brian@inspireenvironmental.com), Jeff Kneebone (jkneebone@neaq.org)" = "INSPIRE Env. (MA)",
 #     "Edward Kim (ekim@neaq.org), Jeff Kneebone (jkneebone@neaq.org)" = "New England Aq. (MA)",
-#     "Keith Dunton (kdunton@monmouth.edu)" = "Monmouth Uni (NJ)"
+#     "Keith Dunton (kdunton@monmouth.edu)" = "Monmouth Uni (NJ)",
+#     "Will Patterson (ATL)" = "UF (FL-Atl)",
+#     "Will Patterson (GOM)" = "UF (FL-GOM)"
 #   ),
 #   google_drive = list(
 #     otn_folder = "https://drive.google.com/drive/folders/1yoSVIIgJvZOigLv90xnIvqtSP_O_bweT",
