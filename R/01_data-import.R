@@ -315,15 +315,27 @@ process_detection_files <- function(config_list, folder_path) {
         sensor_unit = `Sensor Unit`
       ) %>%
       mutate(
-        station = str_replace(station, "VR2W-", ""), # remove receiver string
-        elasmo = str_replace(elasmo, "A69-9001-|A69-9006-|A69-1602-|A69-9002-|A69-1601-|A69-1303-", ""), # remove tag string
-        time = as.POSIXct(time, format = "%Y-%m-%d %H:%M", tz = "UTC"),
+        time = str_trim(time),
+        station = str_replace(station, "VR2W-", ""),
+        elasmo = str_extract(elasmo, "[^\\-]+$"),
+        time = parse_date_time(
+          time,
+          orders = c(
+            "Y-m-d H:M:S", "Y-m-d H:M",
+            "d-m-y H:M:S", "d-m-y H:M",
+            "y-m-d H:M:S", "y-m-d H:M",
+            "Y/m/d H:M:S", "Y/m/d H:M",
+            "d/m/y H:M:S", "d/m/y H:M",
+            "d/m/Y H:M:S", "d/m/Y H:M",
+            "d-m-Y H:M:S", "d-m-Y H:M"
+          ),
+          tz = "UTC",
+          exact = FALSE
+        ),
         elasmo = as.numeric(elasmo),
         agency = "STB (BAH)"
       ) %>%
-      arrange(
-        time
-      )
+      arrange(time)
   })
 
   # Combine all data frames
