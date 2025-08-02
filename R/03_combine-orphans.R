@@ -169,8 +169,23 @@ import_orphan_data <- function(config_list, folder_url, file_pattern, poc_mappin
         "deploy_long" = longitude
       ) %>%
       mutate(
-        time = as.POSIXct(time, format = "%Y-%m-%d %H:%M", tz = "UTC") %>%
-          lubridate::with_tz(timezone), # Convert UTC to local timezone
+        time = str_trim(time),
+        station = str_extract(station, "[^\\-]+$"),
+        elasmo = str_extract(elasmo, "[^\\-]+$"),
+        time = lubridate::parse_date_time(
+          time,
+          orders = c(
+            "Y-m-d H:M:S", "Y-m-d H:M",
+            "d-m-y H:M:S", "d-m-y H:M",
+            "y-m-d H:M:S", "y-m-d H:M",
+            "Y/m/d H:M:S", "Y/m/d H:M",
+            "d/m/y H:M:S", "d/m/y H:M",
+            "d/m/Y H:M:S", "d/m/Y H:M",
+            "d-m-Y H:M:S", "d-m-Y H:M"
+          ),
+          tz = "UTC",
+          exact = FALSE
+        ),
         location = str_replace_all(
           location,
           c(
@@ -178,11 +193,6 @@ import_orphan_data <- function(config_list, folder_url, file_pattern, poc_mappin
             "buoyBACKREEF" = "Buoybackreef"
           )
         ), # Consistency
-        elasmo = str_replace(
-          elasmo,
-          "A69-(9001|9006|1602|9002|1601|1303)-",
-          ""
-        ), # Remove tag prefixes
         agency = case_when( # Agency from contact point
           contact_poc %in% names(poc_mapping) ~ poc_mapping[contact_poc],
           TRUE ~ "" # Default if unknown
@@ -253,14 +263,24 @@ import_orphan_data_private <- function(config_list, folder_url, file_pattern, po
         "deploy_long" = Longitude
       ) %>%
       mutate(
-        time = as.POSIXct(time, format = "%d/%m/%y %H:%M", tz = "UTC"),
-        time = with_tz(time, timezone), # Convert UTC to local timezone
-        station = str_replace(station, "VR2AR-", ""),
-        elasmo = str_replace(
-          elasmo,
-          "A69-9001-|A69-9006-|A69-1602-|A69-9002-|A69-1601-|A69-1303-",
-          ""
+        time = str_trim(time),
+        station = str_extract(station, "[^\\-]+$"),
+        elasmo = str_extract(elasmo, "[^\\-]+$"),
+        time = lubridate::parse_date_time(
+          time,
+          orders = c(
+            "Y-m-d H:M:S", "Y-m-d H:M",
+            "d-m-y H:M:S", "d-m-y H:M",
+            "y-m-d H:M:S", "y-m-d H:M",
+            "Y/m/d H:M:S", "Y/m/d H:M",
+            "d/m/y H:M:S", "d/m/y H:M",
+            "d/m/Y H:M:S", "d/m/Y H:M",
+            "d-m-Y H:M:S", "d-m-Y H:M"
+          ),
+          tz = "UTC",
+          exact = FALSE
         ),
+        time = with_tz(time, timezone), # Convert UTC to local timezone
         sensor_value = NA,
         sensor_unit = NA,
         agency = case_when( # Match point of contact to right agency
