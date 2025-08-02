@@ -316,7 +316,7 @@ process_detection_files <- function(config_list, folder_path) {
       ) %>%
       mutate(
         time = str_trim(time),
-        station = str_replace(station, "VR2W-", ""),
+        station = str_extract(station, "[^\\-]+$"),
         elasmo = str_extract(elasmo, "[^\\-]+$"),
         time = parse_date_time(
           time,
