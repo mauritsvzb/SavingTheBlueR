@@ -28,7 +28,7 @@
 # pacman::p_load(here, tidyverse, googledrive)
 
 # Global Configuration
-# config <- list(
+# config_new <- list(
 #   data_timezone = "US/Eastern",
 #   data_directory = here::here("data"),
 #   data_files = list(rec_attr = "vloc.rds", andr_det = "det_compiled.rds"),
@@ -50,7 +50,8 @@
 #     "Edward Kim (ekim@neaq.org), Jeff Kneebone (jkneebone@neaq.org)" = "New England Aq. (MA)",
 #     "Keith Dunton (kdunton@monmouth.edu)" = "Monmouth Uni (NJ)",
 #     "Will Patterson (ATL)" = "UF (FL-Atl)",
-#     "Will Patterson (GOM)" = "UF (FL-GOM)"
+#     "Will Patterson (GOM)" = "UF (FL-GOM)",
+#     "Emma Beretta (NOAA)" = "NOAA (GOM)"
 #   ),
 #   google_drive = list(
 #     otn_folder = "https://drive.google.com/drive/folders/1yoSVIIgJvZOigLv90xnIvqtSP_O_bweT",
@@ -144,6 +145,7 @@ import_orphan_data <- function(config_list, folder_url, file_pattern, poc_mappin
   if (is.null(myfiles)) {
     return(NULL) # Return NULL if import failed
   }
+
   # Process each data frame
   purrr::map(myfiles, function(df) {
     df %>%
@@ -169,23 +171,10 @@ import_orphan_data <- function(config_list, folder_url, file_pattern, poc_mappin
         "deploy_long" = longitude
       ) %>%
       mutate(
-        time = str_trim(time),
         station = str_extract(station, "[^\\-]+$"),
         elasmo = str_extract(elasmo, "[^\\-]+$"),
-        time = lubridate::parse_date_time(
-          time,
-          orders = c(
-            "Y-m-d H:M:S", "Y-m-d H:M",
-            "d-m-y H:M:S", "d-m-y H:M",
-            "y-m-d H:M:S", "y-m-d H:M",
-            "Y/m/d H:M:S", "Y/m/d H:M",
-            "d/m/y H:M:S", "d/m/y H:M",
-            "d/m/Y H:M:S", "d/m/Y H:M",
-            "d-m-Y H:M:S", "d-m-Y H:M"
-          ),
-          tz = "UTC",
-          exact = FALSE
-        ),
+        time = as.POSIXct(time, format="%Y-%m-%d %H:%M:%S", tz = "UTC"),
+        time = with_tz(time, timezone), # Convert UTC to local timezone
         location = str_replace_all(
           location,
           c(
@@ -263,23 +252,9 @@ import_orphan_data_private <- function(config_list, folder_url, file_pattern, po
         "deploy_long" = Longitude
       ) %>%
       mutate(
-        time = str_trim(time),
         station = str_extract(station, "[^\\-]+$"),
         elasmo = str_extract(elasmo, "[^\\-]+$"),
-        time = lubridate::parse_date_time(
-          time,
-          orders = c(
-            "Y-m-d H:M:S", "Y-m-d H:M",
-            "d-m-y H:M:S", "d-m-y H:M",
-            "y-m-d H:M:S", "y-m-d H:M",
-            "Y/m/d H:M:S", "Y/m/d H:M",
-            "d/m/y H:M:S", "d/m/y H:M",
-            "d/m/Y H:M:S", "d/m/Y H:M",
-            "d-m-Y H:M:S", "d-m-Y H:M"
-          ),
-          tz = "UTC",
-          exact = FALSE
-        ),
+        time = as.POSIXct(time, format="%Y-%m-%d %H:%M", tz = "UTC"),
         time = with_tz(time, timezone), # Convert UTC to local timezone
         sensor_value = NA,
         sensor_unit = NA,
