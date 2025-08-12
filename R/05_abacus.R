@@ -33,14 +33,15 @@
 #   start_time = NULL, # In local time zone e.g., "2018-01-01 00:00:00"
 #   end_time = NULL, # In local time zone e.g., "2020-12-31 23:59:59"
 #   color_palette = c( # (OPTIONAL) Color palette to use,
-#     "#332288", "#88CCEE", "#44AA99", "#117733", "#999933", "#DDCC77",
-#     "#CC6677", "#882255", "#AA4499", "#661100", "#6699CC", "#AA4466", "#4477AA"),
+#     "#332288", "#88CCEE", "#44AA99", "#117733", "#999933", "#DDCC77", "#6C7B8B",
+#     "#CC6677", "#882255", "#AA4499", "#661100", "#6699CC", "#AA4466", "#4477AA",
+#     "#C37241", "#495649", "#885E93"),
 #   shapes = c( # (OPTIONAL) Shape mapping to use,
-#     16, 17, 15, 18, 8, 7, 6),
-#   output_filename = "abacus_season.tiff", # Name of the output TIFF file
-#   image_width = 340, # Width of the output image in mm
-#   image_height = 300, # Height of the output image in mm
-#   plot_resolution = 300, # Resolution of the output image in DPI
+#     16, 17, 15, 18, 8, 7, 6, 0, 3, 4),
+#   output_filename = "abacus.tiff", # Name of the output TIFF file
+#   image_width = 550, # Width of the output image in mm
+#   image_height = 400, # Height of the output image in mm
+#   plot_resolution = 250, # Resolution of the output image in DPI
 #   tagging_date_color = "red", # Color for tagging date points
 #   tagging_date_symbol = "|", # Shape for tagging date points
 #   default_point_size = 0.8, # Default size for detection points
@@ -50,7 +51,7 @@
 #   legend_inset = c(0.01, 0.01), # Inset for the legend position
 #   legend_text_cex = 0.7, # Legend text size
 #   legend_box = "y", # Show legend box
-#   xlim_months_left = 1, # Number of months to extend left of min date on x-axis
+#   xlim_months_left = 7, # Number of months to extend left of min date on x-axis
 #   vertical_axis_label_cex = 0.7, # Vertical axis labels size
 #   horizontal_axis_label_cex = 0.7 # Horizontal axis labels size
 # )
@@ -183,10 +184,10 @@ calculate_time_bins <- function(config_list, df, timezone) {
       max.time <- as.POSIXct(max.time, "%Y-%m-%d", tz = config_list$dat.TZ)
 
       # Create time sequence
-      time.int <- difftime(max.time, min.time - (3600 * 24 * 30), units = config_list$timeint)
+      time.int <- difftime(max.time, min.time - (3600 * 24 * 30 * config_list$xlim_months_left), units = config_list$timeint)
       lo <- ceiling(as.numeric(time.int)) / config_list$time
       timeseq <- seq(
-        from = min.time - (3600 * 24),
+        from = min.time - (3600 * 24 * 30 * config_list$xlim_months_left),
         length.out = (lo + (0.4 * lo)),
         by = paste(config_list$time, config_list$timeint, sep = " ")
       )
@@ -217,12 +218,14 @@ group_agencies_by_country <- function(df) {
     mutate(
       country = case_when(
         agency %in% c("STB (BAH)", "BTW (BAH)") ~ "Bahamas",
-        agency %in% c("FWC-TEQ (FL-Atl)", "BTT (FL-Keys)", "UF (FL-GOM)", "FWC (FL-Keys)") ~ "FL, USA",
+        agency %in% c("BTT (FL-Keys)", "FWC (FL-Keys)", "FWC-TEQ (FL-Atl)", "UF (FL-Atl)",
+                      "UF/FWC (FL-GOM)", "UF/FWC (FL-Keys)") ~ "FL, USA",
         agency %in% c("NCSU (NC)", "NC Aq. (NC)") ~ "NC, USA",
         agency %in% c("LSU (LA)") ~ "LA, USA",
         agency %in% c("NOAA (VA)", "TNC (VA)") ~ "VA, USA",
         agency %in% c("INSPIRE Env. (MA)", "New England Aq. (MA)") ~ "MA, USA",
         agency %in% c("Monmouth Uni (NJ)") ~ "NJ, USA",
+        agency %in% c("NOAA (GOM)") ~ "USA",
         TRUE ~ NA_character_ # For any unmatched cases
       )
     ) %>%
@@ -478,7 +481,7 @@ abacus_plot <- function(config_list, df, temp, taglist, timezone, include_specie
       first_of_next_month <- ceiling_date(min(df$date), "month")
 
       axis.POSIXct(1,
-        at = seq(first_of_next_month, max(df$date), by = "month"), format = "%b",
+        at = seq(first_of_next_month - (3600 * 24 * 30 * config_list$xlim_months_left), max(df$date), by = "month"), format = "%b",
         las = 2, cex.axis = 0.7
       ) # sets primary x axis label, months
       axis.POSIXct(1,
