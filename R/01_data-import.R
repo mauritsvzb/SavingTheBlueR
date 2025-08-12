@@ -34,7 +34,7 @@
 #     "Deep Drop 1", "Bightbackreef", "On Buoy"
 #   ),
 #   otn_short_folder_url = "https://drive.google.com/drive/folders/1kShVtR3it9WUlVg9L4HzFcNA9R2_LYrN",
-#   otn_short_file_pattern = "otn-instrument-deployment-short-form_GUTTRIDGE_2024_SEPT 24_1.xlsx",
+#   otn_short_file_pattern = "otn-instrument-deployment-short-form_GUTTRIDGE_2025_July 1.xlsx",
 #   catch_folder_url = "https://drive.google.com/drive/folders/1LzoZdCqBDhpYQEBc6gb-M2zBdFgKnQop",
 #   catch_file_pattern = "SharkCapture.xlsx",
 #   detection_folder_path = "https://drive.google.com/drive/folders/1oE72VHV4L_Gwm5zk48eEtOSBhMvzu99q"
@@ -315,27 +315,13 @@ process_detection_files <- function(config_list, folder_path) {
         sensor_unit = `Sensor Unit`
       ) %>%
       mutate(
-        time = str_trim(time),
         station = str_extract(station, "[^\\-]+$"),
         elasmo = str_extract(elasmo, "[^\\-]+$"),
-        time = parse_date_time(
-          time,
-          orders = c(
-            "Y-m-d H:M:S", "Y-m-d H:M",
-            "d-m-y H:M:S", "d-m-y H:M",
-            "y-m-d H:M:S", "y-m-d H:M",
-            "Y/m/d H:M:S", "Y/m/d H:M",
-            "d/m/y H:M:S", "d/m/y H:M",
-            "d/m/Y H:M:S", "d/m/Y H:M",
-            "d-m-Y H:M:S", "d-m-Y H:M"
-          ),
-          tz = "UTC",
-          exact = FALSE
-        ),
+        time = as.POSIXct(time, format="%Y-%m-%d %H:%M:%S", tz = "UTC"),
         elasmo = as.numeric(elasmo),
         agency = "STB (BAH)"
-      ) %>%
-      arrange(time)
+      ) # %>%
+      # arrange(time)
   })
 
   # Combine all data frames
